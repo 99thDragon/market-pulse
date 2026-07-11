@@ -1,0 +1,165 @@
+/* Pages Stylesheet */
+
+.page-container {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-header {
+  margin-bottom: 30px;
+}
+
+/* Title gradient updated for dark bg — sky to cyan */
+.page-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #38bdf8, #67e8f9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 10px;
+}
+
+.page-subtitle {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+
+/* ─── Section cards — dark glass ─── */
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  padding: 30px;
+  margin-bottom: 25px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.30),
+    0 2px 4px -2px rgba(0, 0, 0, 0.20);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.section-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 25px -5px rgba(0, 150, 255, 0.15),
+    0 4px 6px -4px rgba(0, 0, 0, 0.25);
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+.section-card h3 {
+  font-size: 1.5rem;
+  color: var(--text-heading);
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ─── Grids ─── */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+/* ─── Badges ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-blue   { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); }
+.badge-green  { background: rgba(34, 197, 94,  0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94,  0.25); }
+.badge-red    { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.25); }
+.badge-purple { background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.25); }
+
+/* ─── Steps ─── */
+.step-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.step-item {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.step-num {
+  background: rgba(56, 189, 248, 0.20);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* ─── Metric Tables ─── */
+.metric-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.metric-table th,
+.metric-table td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--surface-border);
+  color: var(--text);
+}
+
+.metric-table th {
+  background: rgba(30, 58, 95, 0.50);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.metric-table tr:hover td {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+/* ─── Prompt / code box ─── */
+.prompt-box {
+  background: rgba(5, 12, 24, 0.85);
+  color: #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  font-family: 'Fira Code', Consolas, Monaco, monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+.prompt-box pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+

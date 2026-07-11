@@ -1,0 +1,212 @@
+@import "./pages.css";
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   Single source of truth for every color, size, and duration.
+═══════════════════════════════════════════════════════════ */
+:root {
+  /* ── Brand / Accent ── */
+  --sky:          #38bdf8;
+  --sky-dim:      rgba(56, 189, 248, 0.12);
+  --sky-glow:     rgba(56, 189, 248, 0.08);
+  --green:        #4ade80;
+  --green-dim:    rgba(74,  222, 128, 0.12);
+  --red:          #f87171;
+  --red-dim:      rgba(248, 113, 113, 0.12);
+  --amber:        #fbbf24;
+  --amber-dim:    rgba(251, 191,  36, 0.12);
+  --purple:       #a78bfa;
+  --purple-dim:   rgba(167, 139, 250, 0.12);
+
+  /* ── Background ── */
+  --bg-base:      #0B1A30;
+  --bg-mid:       #1F456E;
+
+  /* ── Surfaces ── */
+  --surface-1:    rgba(255, 255, 255, 0.04);
+  --surface-2:    rgba(255, 255, 255, 0.07);
+  --surface-3:    rgba(255, 255, 255, 0.11);
+  --border:       rgba(255, 255, 255, 0.08);
+  --border-accent:rgba(56,  189, 248, 0.22);
+
+  /* Legacy compatibility aliases */
+  --primary:        var(--sky);
+  --primary-dark:   #0ea5e9;
+  --secondary:      #1e3a5f;
+  --background:     var(--bg-base);
+  --surface:        var(--surface-1);
+  --surface-border: var(--border-accent);
+
+  /* ── Text ── */
+  --text-heading: #f0f9ff;
+  --text-primary: #e2e8f0;
+  --text-body:    #cbd5e1;
+  --text-muted:   #64748b;
+
+  /* Legacy alias */
+  --text: var(--text-body);
+
+  /* ── Typography ── */
+  --font-sans: Inter, 'SF Pro Display', -apple-system, BlinkMacSystemFont,
+               'Segoe UI', Arial, sans-serif;
+  --font-mono: 'Fira Code', 'JetBrains Mono', Consolas, Monaco, monospace;
+
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  2rem;
+  --text-4xl:  2.625rem;
+
+  /* ── Spacing ── */
+  --sp-1:  4px;   --sp-2:  8px;   --sp-3:  12px;
+  --sp-4:  16px;  --sp-5:  20px;  --sp-6:  24px;
+  --sp-8:  32px;  --sp-10: 40px;  --sp-12: 48px;
+  --sp-16: 64px;
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+  --radius:    var(--radius-lg);
+
+  /* ── Elevation / Shadows ── */
+  --shadow-sm:   0 1px 3px  rgba(0,0,0,0.35), 0 1px 2px  rgba(0,0,0,0.25);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.45), 0 1px 4px  rgba(0,0,0,0.30);
+  --shadow-lg:   0 8px 32px rgba(0,0,0,0.55), 0 2px 8px  rgba(0,0,0,0.35);
+  --shadow-glow: 0 0 28px   rgba(56,189,248,0.10), 0 0 8px rgba(56,189,248,0.06);
+
+  /* ── Motion ── */
+  --ease-out:    cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast:   150ms var(--ease-out);
+  --t-normal: 250ms var(--ease-in-out);
+  --t-slow:   400ms var(--ease-in-out);
+}
+
+/* ═══════════════════════
+   RESET
+═══════════════════════ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ═══════════════════════
+   BODY — deep blue gradient + accent circles
+═══════════════════════ */
+body {
+  background: linear-gradient(
+    135deg,
+    var(--bg-base) 0%,
+    var(--bg-mid)  50%,
+    var(--bg-base) 100%
+  );
+  background-attachment: fixed;
+  font-family:  var(--font-sans);
+  font-size:    var(--text-base);
+  line-height:  1.7;
+  color:        var(--text-body);
+  min-height:   100vh;
+  -webkit-font-smoothing:  antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accent radial glow circles */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::before {
+  width: 700px; height: 700px;
+  top: -15%; left: -10%;
+  background: radial-gradient(circle, rgba(0,150,255,0.11) 0%, transparent 70%);
+  animation: accentFloat1 22s ease-in-out infinite;
+  will-change: transform;
+}
+
+body::after {
+  width: 600px; height: 600px;
+  bottom: -10%; right: -8%;
+  background: radial-gradient(circle, rgba(100,210,255,0.08) 0%, transparent 70%);
+  animation: accentFloat2 28s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes accentFloat1 {
+  0%,100% { transform: translate(0,0)       scale(1);    }
+  33%      { transform: translate(40px,-30px) scale(1.08); }
+  66%      { transform: translate(-20px,25px) scale(0.96); }
+}
+@keyframes accentFloat2 {
+  0%,100% { transform: translate(0,0)        scale(1);    }
+  40%      { transform: translate(-35px,20px) scale(1.06); }
+  75%      { transform: translate( 25px,-15px) scale(0.97); }
+}
+
+/* Stacking: all page chrome sits above the body pseudo-elements */
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* ═══════════════════════
+   TYPOGRAPHY GLOBALS
+═══════════════════════ */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  color:        var(--text-heading);
+  font-weight:  700;
+  letter-spacing: -0.02em;
+  line-height:  1.2;
+}
+
+h1 { font-size: var(--text-4xl); margin-bottom: var(--sp-5); }
+h2 { font-size: var(--text-3xl); margin-bottom: var(--sp-4); }
+h3 { font-size: var(--text-2xl); margin-bottom: var(--sp-3); }
+h4 { font-size: var(--text-xl);  margin-bottom: var(--sp-2); font-weight: 600; }
+
+p {
+  font-size:   var(--text-base);
+  line-height: 1.75;
+  color:       var(--text-body);
+}
+
+strong, b {
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+em {
+  color:       var(--text-muted);
+  font-style:  italic;
+}
+
+/* Inline code */
+code {
+  font-family: var(--font-mono);
+  font-size:   0.84em;
+  background:  rgba(56,189,248,0.10);
+  color:       var(--sky);
+  padding:     2px 7px;
+  border-radius: var(--radius-sm);
+  border:      1px solid rgba(56,189,248,0.18);
+}
+
+/* ═══════════════════════
+   LEGACY HELPER
+═══════════════════════ */
+.app {
+  max-width: 1200px;
+  margin: auto;
+  padding: var(--sp-10);
+}
