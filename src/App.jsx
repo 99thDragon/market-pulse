@@ -5,6 +5,7 @@ import ValueProposition from "./pages/ValueProposition";
 import MVPFeatures from "./pages/MVPFeatures";
 import SuccessMetrics from "./pages/SuccessMetrics";
 import AgentRequirements from "./pages/AgentRequirements";
+import LiveReport from "./pages/LiveReport";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/mvp" element={<MVPFeatures />} />
         <Route path="/metrics" element={<SuccessMetrics />} />
         <Route path="/agents" element={<AgentRequirements />} />
+        <Route path="/report" element={<LiveReport />} />
       </Routes>
     </MainLayout>
   );

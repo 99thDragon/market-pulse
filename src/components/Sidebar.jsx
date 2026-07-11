@@ -4,7 +4,8 @@ import {
   FiTrendingUp,
   FiTarget,
   FiBarChart,
-  FiCpu
+  FiCpu,
+  FiActivity
 } from "react-icons/fi";
 import "../styles/layout.css";
 
@@ -34,6 +35,11 @@ export default function Sidebar(){
       name:"Agent Requirements",
       path:"/agents",
       icon:<FiCpu/>
+    },
+    {
+      name:"Live Report",
+      path:"/report",
+      icon:<FiActivity/>
     }
   ];
 
