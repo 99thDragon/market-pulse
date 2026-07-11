@@ -12,3 +12,6 @@ __pycache__/
 
 # Secrets — never committed
 .env
+
+.vercel
+.env*
