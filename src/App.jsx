@@ -1,24 +1,32 @@
-import { Routes, Route } from "react-router-dom";
-import MainLayout from "./layouts/MainLayout";
-import Home from "./pages/Home";
-import ValueProposition from "./pages/ValueProposition";
-import MVPFeatures from "./pages/MVPFeatures";
-import SuccessMetrics from "./pages/SuccessMetrics";
-import AgentRequirements from "./pages/AgentRequirements";
-import LiveReport from "./pages/LiveReport";
+import { Routes, Route, Navigate } from "react-router-dom";
+import AppShell from "./components/AppShell";
+import Home from "./pages/docs/Home";
+import ValueProposition from "./pages/docs/ValueProposition";
+import MVPFeatures from "./pages/docs/MVPFeatures";
+import SuccessMetrics from "./pages/docs/SuccessMetrics";
+import AgentRequirements from "./pages/docs/AgentRequirements";
+import Report from "./pages/app/Report";
+import ReportArchive from "./pages/app/ReportArchive";
+import IntegrationStatus from "./pages/app/IntegrationStatus";
+import LiveRun from "./pages/app/LiveRun";
 
 function App() {
   return (
-    <MainLayout>
+    <AppShell>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/value-proposition" element={<ValueProposition />} />
         <Route path="/mvp" element={<MVPFeatures />} />
         <Route path="/metrics" element={<SuccessMetrics />} />
         <Route path="/agents" element={<AgentRequirements />} />
-        <Route path="/report" element={<LiveReport />} />
+
+        <Route path="/app/report" element={<Report />} />
+        <Route path="/app/reports" element={<ReportArchive />} />
+        <Route path="/app/status" element={<IntegrationStatus />} />
+        <Route path="/app/live" element={<LiveRun />} />
+        <Route path="/app" element={<Navigate to="/app/report" replace />} />
       </Routes>
-    </MainLayout>
+    </AppShell>
   );
 }
 
