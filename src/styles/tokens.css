@@ -1,0 +1,77 @@
+/* Design tokens — shared by Docs and App surfaces */
+:root {
+  --sky:          #38bdf8;
+  --sky-dim:      rgba(56, 189, 248, 0.12);
+  --green:        #4ade80;
+  --green-dim:    rgba(74, 222, 128, 0.12);
+  --red:          #f87171;
+  --red-dim:      rgba(248, 113, 113, 0.12);
+  --amber:        #fbbf24;
+  --amber-dim:    rgba(251, 191, 36, 0.12);
+  --purple:       #a78bfa;
+  --purple-dim:   rgba(167, 139, 250, 0.12);
+
+  --bg-base:      #0B1220;
+  --bg-elevated:  #111827;
+
+  --surface-1:    #1A2332;
+  --surface-2:    #243044;
+  --surface-inset:#0D1520;
+
+  --border:         rgba(255, 255, 255, 0.08);
+  --border-strong:  rgba(255, 255, 255, 0.14);
+  --border-accent:  rgba(56, 189, 248, 0.35);
+
+  --primary:        var(--sky);
+  --background:     var(--bg-base);
+  --surface:        var(--surface-1);
+  --surface-border: var(--border-accent);
+
+  --text-heading: #f8fafc;
+  --text-primary: #e2e8f0;
+  --text-body:    #cbd5e1;
+  --text-muted:   #94a3b8;
+  --text:         var(--text-body);
+
+  --accent:       var(--sky);
+  --accent-muted: var(--sky-dim);
+
+  --font-sans: Inter, 'SF Pro Display', -apple-system, BlinkMacSystemFont,
+               'Segoe UI', Arial, sans-serif;
+  --font-mono: 'Fira Code', 'JetBrains Mono', Consolas, Monaco, monospace;
+
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  2rem;
+  --text-4xl:  2.25rem;
+
+  --sp-1:  4px;   --sp-2:  8px;   --sp-3:  12px;
+  --sp-4:  16px;  --sp-5:  20px;  --sp-6:  24px;
+  --sp-8:  32px;  --sp-10: 40px;  --sp-12: 48px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+  --radius:    var(--radius-lg);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+
+  --ease-out:    cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast:   150ms var(--ease-out);
+  --t-normal: 250ms var(--ease-in-out);
+
+  --focus-ring: 2px solid var(--sky);
+  --focus-offset: 2px;
+
+  --header-height: 64px;
+  --sidebar-width: 260px;
+  --content-max:   720px;
+  --content-wide:  960px;
+}

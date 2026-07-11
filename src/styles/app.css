@@ -1,0 +1,44 @@
+/* App-specific layout tweaks */
+
+.page-container--report {
+  max-width: var(--content-wide);
+}
+
+.report-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px var(--sp-4);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--t-fast);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-heading);
+}
+
+.btn:hover {
+  border-color: var(--border-accent);
+}
+
+.btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.btn-primary {
+  background: var(--sky-dim);
+  border-color: var(--border-accent);
+  color: var(--sky);
+}
