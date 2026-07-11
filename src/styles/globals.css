@@ -1,0 +1,38 @@
+@import "./pages.css";
+
+:root{
+  --primary:#2563eb;
+  --secondary:#1e293b;
+  --background:#f8fafc;
+  --surface:#ffffff;
+  --text:#111827;
+  --radius:12px;
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  background:var(--background);
+  font-family:Inter,Arial,sans-serif;
+  color:var(--text);
+}
+
+.app{
+  max-width:1200px;
+  margin:auto;
+  padding:40px;
+}
+
+h1{
+  font-size:3rem;
+  margin-bottom:20px;
+}
+
+p{
+  font-size:1.2rem;
+  line-height:1.8;
+}

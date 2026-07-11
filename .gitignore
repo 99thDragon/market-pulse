@@ -1,3 +1,17 @@
-.env
+# Frontend
+node_modules/
+dist/
+build/
+.next/
+coverage/
+.vscode/
+
+# Backend
 .venv/
 __pycache__/
+
+# Secrets — never committed
+.env
+
+.vercel
+.env*
