@@ -1,7 +1,14 @@
+# Frontend
 node_modules/
 dist/
 build/
-.env
 .next/
 coverage/
 .vscode/
+
+# Backend
+.venv/
+__pycache__/
+
+# Secrets — never committed
+.env
