@@ -11,7 +11,9 @@ const CHANNEL_NAMES = {
 };
 
 function ChannelCard({ id, data }) {
-  const isMock = data?.source === "mock";
+  const source = data?.source;
+  const isReal = source && !["mock", "simulated"].includes(source) && !data?.error;
+  const badgeLabel = source === "mock" ? "Mock" : source === "simulated" ? "Simulated" : "Live";
   const metrics = Object.entries(data || {}).filter(
     ([key, value]) =>
       !["channel", "source", "period", "note", "error"].includes(key) &&
@@ -22,7 +24,7 @@ function ChannelCard({ id, data }) {
     <div className="section-card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
         <strong style={{ color: "var(--text-heading)" }}>{CHANNEL_NAMES[id] ?? id}</strong>
-        <span className={`badge ${isMock ? "badge-amber" : "badge-green"}`}>{isMock ? "Mock" : "Live"}</span>
+        <span className={`badge ${isReal ? "badge-green" : "badge-amber"}`}>{isReal ? "Live" : badgeLabel}</span>
       </div>
       {data?.error && <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>Data Unavailable: {data.error}</p>}
       {data?.note && <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>{data.note}</p>}
