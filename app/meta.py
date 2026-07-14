@@ -4,9 +4,19 @@ import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter
 
+from app.simulator import simulate_week
+
 load_dotenv()
 
 router = APIRouter()
+
+
+def _parse_week(week: str | None):
+    """Parse '2026-W27' into (2026, 27); None means current week."""
+    if not week:
+        return (None, None)
+    year, _, wk = week.partition("-W")
+    return (int(year), int(wk))
 
 MOCK_RESPONSE = {
     "channel": "meta",
@@ -21,12 +31,16 @@ MOCK_RESPONSE = {
 
 
 @router.get("/meta/performance")
-def meta_performance():
-    """Campaign metrics from the Meta Marketing API insights endpoint; falls
-    back to mock data when no token is configured."""
+def meta_performance(week: str | None = None):
+    """Campaign metrics from the Meta Marketing API insights endpoint.
+    With SIMULATE_META=1 (or without a token) returns the artificial market
+    instead — labeled "simulated", deterministic per ISO week."""
+    if os.getenv("SIMULATE_META") == "1" or not os.getenv("META_ACCESS_TOKEN"):
+        year_week = _parse_week(week)
+        return simulate_week("meta", *year_week)
     token = os.getenv("META_ACCESS_TOKEN")
     account_id = os.getenv("META_AD_ACCOUNT_ID")
-    if not token or not account_id:
+    if not account_id:
         return MOCK_RESPONSE
 
     try:
