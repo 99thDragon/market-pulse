@@ -5,17 +5,71 @@ import ChannelSection from "../../components/ui/ChannelSection";
 import ReportSkeleton from "../../components/ui/ReportSkeleton";
 import EmptyState from "../../components/ui/EmptyState";
 import Callout from "../../components/ui/Callout";
-import { currentReport } from "../../data/mockReport";
 import { FiCalendar, FiCheck } from "react-icons/fi";
+
+function mapApiReport(payload) {
+  const rep = payload?.report;
+  if (!rep) return { status: "empty" };
+
+  const flags = (rep.flags ?? []).map((flag, i) => ({
+    id: `${i}-${flag.metric}`,
+    ...flag,
+    conflict: flag.direction === "conflict",
+  }));
+
+  const channels = (rep.channels ?? []).map((channel) => {
+    const flagCount = flags.filter(
+      (f) =>
+        (f.source || "").toLowerCase().includes(channel.id.replace("_", " ")) ||
+        (f.source || "").toLowerCase().startsWith(channel.name.toLowerCase()) ||
+        (f.metric || "").toLowerCase().startsWith(channel.name.toLowerCase())
+    ).length;
+    return {
+      id: channel.id,
+      name: channel.name,
+      status: channel.status,
+      flagCount,
+      metrics: channel.metrics ?? [],
+      unavailable: channel.status === "unavailable",
+    };
+  });
+
+  const generated = rep.generatedAt ? new Date(rep.generatedAt) : null;
+  return {
+    status: "ready",
+    period: rep.period,
+    baselineWeek: rep.baseline_week ?? payload.baseline_week,
+    generatedAt:
+      generated && !Number.isNaN(generated.valueOf())
+        ? generated.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+        : rep.generatedAt,
+    flags,
+    channels,
+  };
+}
 
 export default function Report() {
   const [loading, setLoading] = useState(true);
-  const [reviewed, setReviewed] = useState(currentReport.reviewed);
-  const report = currentReport;
+  const [report, setReport] = useState(null);
+  const [reviewed, setReviewed] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(t);
+    let alive = true;
+    (async () => {
+      try {
+        const resp = await fetch("/api/report");
+        if (!resp.ok) throw new Error(`Backend answered ${resp.status}`);
+        const payload = await resp.json();
+        if (alive) setReport(mapApiReport(payload));
+      } catch {
+        if (alive) setReport({ status: "error" });
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   if (loading) {
@@ -31,9 +85,9 @@ export default function Report() {
       <div className="page-container page-container--report">
         <EmptyState
           icon={<FiCalendar size={40} />}
-          title="Your first report arrives Monday"
-          description="Connect your integrations and Market Pulse will deliver your first unified cross-channel report automatically."
-          action={<Link to="/app/status" className="btn btn-primary">Check integrations</Link>}
+          title="No report for this week yet"
+          description="Run the agent to generate this week's cross-channel report — it takes about 20 seconds."
+          action={<Link to="/app/live" className="btn btn-primary">Run the agent</Link>}
         />
       </div>
     );
@@ -43,7 +97,7 @@ export default function Report() {
     return (
       <div className="page-container page-container--report">
         <Callout variant="danger" title="Report generation failed">
-          One or more channels could not be reached. Check integration status and try again at the next scheduled run.
+          The backend could not be reached. Check that the API is running, then try again.
         </Callout>
       </div>
     );
@@ -53,7 +107,10 @@ export default function Report() {
     <div className="page-container page-container--report">
       <div className="report-meta">
         <p className="report-meta-period">Week of {report.period}</p>
-        <p className="report-meta-generated">Generated {report.generatedAt}</p>
+        <p className="report-meta-generated">
+          Generated {report.generatedAt}
+          {report.baselineWeek ? ` · vs baseline ${report.baselineWeek}` : " · first run, baseline established"}
+        </p>
       </div>
 
       <div className="report-actions">

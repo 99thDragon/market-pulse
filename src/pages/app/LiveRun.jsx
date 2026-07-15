@@ -1,7 +1,7 @@
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { FiZap, FiRefreshCw } from "react-icons/fi";
 import Callout from "../../components/ui/Callout";
+import FlagCard from "../../components/ui/FlagCard";
 
 const CHANNEL_NAMES = {
   google_ads: "Google Ads",
@@ -47,7 +47,7 @@ export default function LiveRun() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch("/api/report");
+      const resp = await fetch("/api/report?refresh=1");
       if (!resp.ok) throw new Error(`Backend answered ${resp.status}`);
       setResult(await resp.json());
     } catch (err) {
@@ -92,11 +92,30 @@ export default function LiveRun() {
 
       {result?.report && (
         <>
-          <h2 className="report-section-heading">The Report</h2>
-          <div className="section-card" style={{ lineHeight: 1.7 }}>
-            <ReactMarkdown>{result.report}</ReactMarkdown>
+          <h2 className="report-section-heading">
+            What Changed This Week
+            <span className="badge badge-amber">{result.report.flags?.length ?? 0} flags</span>
+          </h2>
+          {result.baseline_week ? (
+            <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "12px" }}>
+              Compared against baseline week {result.baseline_week}
+            </p>
+          ) : (
+            <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "12px" }}>
+              First run — this report establishes the baseline. Flags start next week.
+            </p>
+          )}
+          <div className="flag-list" role="list">
+            {(result.report.flags ?? []).map((flag) => (
+              <div key={flag.metric} role="listitem">
+                <FlagCard {...flag} conflict={flag.direction === "conflict"} />
+              </div>
+            ))}
           </div>
         </>
+      )}
+      {result?.note && (
+        <Callout variant="danger" title="Report format issue">{result.note}</Callout>
       )}
     </div>
   );
