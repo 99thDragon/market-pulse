@@ -10,7 +10,14 @@ from app.crm import crm_pipeline
 from app.email import email_performance
 from app.google_ads import google_ads_performance
 from app.meta import meta_performance
-from app.snapshots import current_week_id, get_prior_snapshot, save_weekly_snapshot
+from app.snapshots import (
+    current_week_id,
+    get_prior_snapshot,
+    get_saved_report,
+    list_saved_reports,
+    save_report,
+    save_weekly_snapshot,
+)
 
 load_dotenv()
 
@@ -76,10 +83,38 @@ def _parse_report(text: str):
         return None, f"report was not valid JSON: {exc}"
 
 
+@router.get("/report/archive")
+def report_archive():
+    """Past cached reports, newest first — one entry per stored week."""
+    entries = []
+    for row in list_saved_reports():
+        report = row.get("metrics") or {}
+        entries.append(
+            {
+                "id": row["week_id"],
+                "period": report.get("period", row["week_id"]),
+                "generatedAt": report.get("generatedAt", row.get("captured_at")),
+                "flagCount": len(report.get("flags", [])),
+                "reviewed": False,
+            }
+        )
+    return {"reports": entries}
+
+
 @router.get("/report")
-def weekly_report():
+def weekly_report(refresh: bool = False):
     """The Market Pulse weekly report: four channels, compared against the
-    prior week's baseline, flags explained — structured JSON per the PRD."""
+    prior week's baseline, flags explained — structured JSON per the PRD.
+    Returns this week's cached report when one exists; ?refresh=1 re-runs
+    the agent."""
+    if not refresh:
+        cached = get_saved_report()
+        if cached:
+            return {
+                "report": cached,
+                "cached": True,
+                "baseline_week": cached.get("baseline_week"),
+            }
     data = collect_channels()
     prior = get_prior_snapshot()
 
@@ -114,12 +149,15 @@ def weekly_report():
 
     # Save AFTER generating, per the PRD — errored channels are skipped inside
     snapshot = save_weekly_snapshot(data)
+    if report:
+        save_report(report)
 
     result = {
         "data": data,
         "baseline_week": prior.get("week_id"),
         "report": report,
         "snapshot": snapshot,
+        "cached": False,
     }
     if parse_error:
         result["note"] = parse_error

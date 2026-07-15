@@ -47,7 +47,7 @@ export default function LiveRun() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch("/api/report");
+      const resp = await fetch("/api/report?refresh=1");
       if (!resp.ok) throw new Error(`Backend answered ${resp.status}`);
       setResult(await resp.json());
     } catch (err) {
