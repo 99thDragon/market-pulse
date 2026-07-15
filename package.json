@@ -1,14 +1,9 @@
 {
-<<<<<<< HEAD
   "name": "market-pulse",
-=======
-  "name": "figma-make-app",
->>>>>>> ac8330f (Initial commit: Market Pulse Frontend project setup)
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-<<<<<<< HEAD
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
@@ -24,28 +19,12 @@
     "react-syntax-highlighter": "^15.6.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.0.0",
-    "vite": "^7.0.0"
-=======
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview",
-    "format": "oxfmt"
-  },
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^6.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
     "tailwindcss": "^4.0.0",
-    "@tailwindcss/vite": "^4.0.0",
-    "oxfmt": "^0.2.0",
     "typescript": "^5.7.0",
-    "vite": "^8.0.0"
->>>>>>> ac8330f (Initial commit: Market Pulse Frontend project setup)
+    "vite": "^7.0.0"
   }
 }
