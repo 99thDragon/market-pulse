@@ -20,6 +20,10 @@ load_dotenv()
 
 TABLE = "weekly_snapshots"
 
+# Reserved "channel" value: the generated report itself, cached per week so
+# the UI loads instantly instead of re-running the agent on every visit.
+REPORT_KIND = "_report"
+
 
 def current_week_id(today: date | None = None) -> str:
     iso = (today or date.today()).isocalendar()
@@ -57,7 +61,12 @@ def get_prior_snapshot(before_week: str | None = None) -> dict:
         resp = requests.get(
             cfg["endpoint"],
             headers=cfg["headers"],
-            params={"week_id": f"lt.{cutoff}", "order": "week_id.desc", "limit": 8},
+            params={
+                "week_id": f"lt.{cutoff}",
+                "channel": f"neq.{REPORT_KIND}",
+                "order": "week_id.desc",
+                "limit": 8,
+            },
             timeout=15,
         )
         resp.raise_for_status()
@@ -105,3 +114,56 @@ def save_weekly_snapshot(channel_data: dict, week_id: str | None = None) -> dict
         return {"error": f"snapshot save failed: {exc}", "week_id": wk}
 
     return {"week_id": wk, "saved_channels": [r["channel"] for r in rows]}
+
+
+def save_report(report: dict, week_id: str | None = None) -> dict:
+    """Cache the generated report for the week (upsert, one per week)."""
+    return save_weekly_snapshot({REPORT_KIND: report}, week_id=week_id)
+
+
+def get_saved_report(week_id: str | None = None) -> dict | None:
+    """The cached report for the week, or None (also None on storage errors —
+    a cache miss just means the caller regenerates)."""
+    cfg = _config()
+    if cfg is None:
+        return None
+    try:
+        resp = requests.get(
+            cfg["endpoint"],
+            headers=cfg["headers"],
+            params={
+                "week_id": f"eq.{week_id or current_week_id()}",
+                "channel": f"eq.{REPORT_KIND}",
+                "select": "metrics",
+                "limit": 1,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except requests.RequestException:
+        return None
+    rows = resp.json()
+    return rows[0]["metrics"] if rows else None
+
+
+def list_saved_reports(limit: int = 12) -> list:
+    """Cached reports, newest first — feeds the archive page."""
+    cfg = _config()
+    if cfg is None:
+        return []
+    try:
+        resp = requests.get(
+            cfg["endpoint"],
+            headers=cfg["headers"],
+            params={
+                "channel": f"eq.{REPORT_KIND}",
+                "select": "week_id,captured_at,metrics",
+                "order": "week_id.desc",
+                "limit": limit,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except requests.RequestException:
+        return []
+    return resp.json()
