@@ -8,6 +8,53 @@ type ApiFlag = { metric: string; change: string; direction: string; cause: strin
 type ApiChannel = { id: string; name: string; status: string; metrics: { label: string; value: string }[] }
 type ApiReport = { period?: string; baseline_week?: string | null; channels?: ApiChannel[]; flags?: ApiFlag[] }
 
+// The agent's real server-side order, narrated during the ~20s run.
+// Adapted from ui-animation-library/preloader.js ("loading = brand story").
+const RUN_STEPS = [
+  'Pulling Google Ads',
+  'Pulling Meta Ads',
+  'Pulling Email',
+  'Pulling CRM',
+  'Comparing to last week',
+  'Writing your report',
+]
+
+// Next Monday 11:00 UTC — the Vercel cron schedule.
+function nextAgentRun(): Date {
+  const next = new Date()
+  next.setUTCHours(11, 0, 0, 0)
+  while (next.getUTCDay() !== 1 || next.getTime() <= Date.now()) {
+    next.setUTCDate(next.getUTCDate() + 1)
+  }
+  return next
+}
+
+// Adapted from ui-animation-library/clock.js — "a system with a schedule".
+function NextRunClock() {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  const target = nextAgentRun()
+  const hours = Math.max(0, Math.floor((target.getTime() - Date.now()) / 3600000))
+  const countdown = hours >= 24 ? `in ${Math.floor(hours / 24)}d ${hours % 24}h` : `in ${hours}h`
+  const local = target.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 10px', marginTop: 6 }}>
+      <span className="clock-dot" />
+      <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', color: '#2D3D5C', textTransform: 'uppercase' }}>
+        Next run
+      </span>
+      <span style={{ fontSize: 11, color: '#4A5A7A', fontFamily: '"JetBrains Mono", monospace' }}>
+        {local} · {countdown}
+      </span>
+    </div>
+  )
+}
+
 function flagsForChannel(channel: ApiChannel, flags: ApiFlag[]): ApiFlag[] {
   const name = channel.name.toLowerCase()
   const id = channel.id.replace('_', ' ')
@@ -72,6 +119,19 @@ export default function App() {
   const [running, setRunning] = useState(false)
   const [report, setReport] = useState<ApiReport | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const [runStep, setRunStep] = useState(0)
+
+  const runAgent = async () => {
+    setRunning(true)
+    setRunStep(0)
+    const pacer = setInterval(
+      () => setRunStep(step => Math.min(step + 1, RUN_STEPS.length - 1)),
+      1600
+    )
+    await fetchReport(true)
+    clearInterval(pacer)
+    setRunning(false)
+  }
 
   const fetchReport = async (refresh = false) => {
     try {
@@ -184,6 +244,9 @@ export default function App() {
           </Link>
         ))}
 
+        {/* Agent schedule */}
+        <NextRunClock />
+
         {/* User */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 9,
@@ -237,7 +300,8 @@ export default function App() {
             </p>
           </div>
           <button
-            onClick={async () => { setRunning(true); await fetchReport(true); setRunning(false) }}
+            onClick={runAgent}
+            disabled={running}
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -250,8 +314,19 @@ export default function App() {
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.18)' }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.12)' }}
           >
-            <Icon d={running ? I.refresh : I.sparkle} size={13} />
-            {running ? 'Analyzing…' : 'Run Analysis'}
+            {running ? (
+              <>
+                <span className="eq" aria-hidden="true"><span /><span /><span /><span /></span>
+                <span className="run-step" key={runStep} style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 12 }}>
+                  {String(runStep + 1).padStart(2, '0')}/{String(RUN_STEPS.length).padStart(2, '0')} · {RUN_STEPS[runStep]}
+                </span>
+              </>
+            ) : (
+              <>
+                <Icon d={I.sparkle} size={13} />
+                Run Analysis
+              </>
+            )}
           </button>
         </header>
 
@@ -264,25 +339,37 @@ export default function App() {
           {/* ── Weekly Intelligence ───────────────────────────────────────── */}
           <section>
             <SectionLabel>Weekly Intelligence{report ? ' · Live' : ''}</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            {/* Staggered entrance adapted from ui-animation-library/split-lines.js
+                (reading-order reveal) — re-keyed per report so re-runs replay it. */}
+            <div key={report?.generatedAt ?? 'loading'} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {report?.channels?.length ? (
-                report.channels.map(channel => {
+                report.channels.map((channel, index) => {
+                  const stagger = `animate-float-up-delay-${Math.min(index + 1, 4)}`
                   if (channel.status === 'unavailable') {
-                    return <MetricCard key={channel.id} source={channel.name} metric="Data unavailable" unavailable />
+                    return (
+                      <div key={channel.id} className={stagger}>
+                        <MetricCard source={channel.name} metric="Data unavailable" unavailable />
+                      </div>
+                    )
                   }
                   const channelFlags = flagsForChannel(channel, flags)
                   if (channelFlags.length === 0) {
-                    return <MetricCard key={channel.id} source={channel.name} metric="No significant change" value="Stable" neutral />
+                    return (
+                      <div key={channel.id} className={stagger}>
+                        <MetricCard source={channel.name} metric="No significant change" value="Stable" neutral />
+                      </div>
+                    )
                   }
                   const flag = channelFlags[0]
                   return (
-                    <MetricCard
-                      key={channel.id}
-                      source={channel.name}
-                      metric={flag.metric.replace(new RegExp(`^${channel.name}\\s*`, 'i'), '')}
-                      value={flag.change.split(' / ')[0]}
-                      positive={flag.direction === 'up'}
-                    />
+                    <div key={channel.id} className={stagger}>
+                      <MetricCard
+                        source={channel.name}
+                        metric={flag.metric.replace(new RegExp(`^${channel.name}\\s*`, 'i'), '')}
+                        value={flag.change.split(' / ')[0]}
+                        positive={flag.direction === 'up'}
+                      />
+                    </div>
                   )
                 })
               ) : (
