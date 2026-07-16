@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import './index.css'
 
 // ─── Live agent data ──────────────────────────────────────────────────────────
@@ -161,6 +162,28 @@ export default function App() {
           })}
         </nav>
 
+        {/* Classic app */}
+        <div style={{ height: 1, background: 'rgba(255,255,255,0.055)', margin: '10px 8px' }} />
+        {[
+          { to: '/app/report', icon: I.file, label: 'Weekly Report (classic)' },
+          { to: '/docs', icon: I.home, label: 'Documentation' },
+        ].map(link => (
+          <Link
+            key={link.to}
+            to={link.to}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              padding: '7px 10px', borderRadius: 7, marginBottom: 2,
+              color: '#4A5A7A', textDecoration: 'none', fontSize: 13,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+          >
+            <Icon d={link.icon} size={14} />
+            <span>{link.label}</span>
+          </Link>
+        ))}
+
         {/* User */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 9,
@@ -168,6 +191,7 @@ export default function App() {
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(255,255,255,0.055)',
           cursor: 'pointer',
+          marginTop: 10,
         }}>
           <div style={{
             width: 28, height: 28, borderRadius: 7, flexShrink: 0,

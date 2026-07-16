@@ -8,7 +8,7 @@ import {
 } from "react-icons/fi";
 
 const links = [
-  { name: "Overview", path: "/", icon: FiHome },
+  { name: "Overview", path: "/docs", icon: FiHome },
   { name: "Value Proposition", path: "/value-proposition", icon: FiTrendingUp },
   { name: "MVP Features", path: "/mvp", icon: FiTarget },
   { name: "Success Metrics", path: "/metrics", icon: FiBarChart },
@@ -25,7 +25,7 @@ export default function DocsSidebar({ onNavigate }) {
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === "/"}
+            end={item.path === "/docs"}
             className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}
             onClick={onNavigate}
           >

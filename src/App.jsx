@@ -1,10 +1,9 @@
-import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppShell from "./components/AppShell";
 
-// Richard's V2 dashboard (Figma Make export) — own chrome, so it mounts
-// outside AppShell while it gets wired to the backend.
-const V2Dashboard = lazy(() => import("./v2/App"));
+// The V2 dashboard is the main app (team decision, July 2026). The classic
+// docs site lives at /docs and the report pages keep their /app/* routes.
+import V2Dashboard from "./v2/App";
 import Home from "./pages/docs/Home";
 import ValueProposition from "./pages/docs/ValueProposition";
 import MVPFeatures from "./pages/docs/MVPFeatures";
@@ -18,20 +17,14 @@ import LiveRun from "./pages/app/LiveRun";
 function App() {
   return (
     <Routes>
-      <Route
-        path="/v2"
-        element={
-          <Suspense fallback={null}>
-            <V2Dashboard />
-          </Suspense>
-        }
-      />
+      <Route path="/" element={<V2Dashboard />} />
+      <Route path="/v2" element={<Navigate to="/" replace />} />
       <Route
         path="*"
         element={
           <AppShell>
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/docs" element={<Home />} />
               <Route path="/value-proposition" element={<ValueProposition />} />
               <Route path="/mvp" element={<MVPFeatures />} />
               <Route path="/metrics" element={<SuccessMetrics />} />
