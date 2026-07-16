@@ -83,6 +83,13 @@ def _parse_report(text: str):
         return None, f"report was not valid JSON: {exc}"
 
 
+@router.get("/report/run")
+def run_weekly_report():
+    """The Monday-morning entry point: always re-runs the agent and caches
+    the result. Vercel's cron hits this every Monday; humans can too."""
+    return weekly_report(refresh=True)
+
+
 @router.get("/report/archive")
 def report_archive():
     """Past cached reports, newest first — one entry per stored week."""
