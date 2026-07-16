@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-surface: #0B1220;
+  --color-card: #151F32;
+  --color-card-2: #1A2540;
+  --color-border: rgba(91, 140, 255, 0.1);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-blue: #5B8CFF;
+  --color-blue-dim: rgba(91, 140, 255, 0.15);
+  --color-blue-glow: rgba(91, 140, 255, 0.25);
+  --color-purple: #7C5CFC;
+  --color-purple-dim: rgba(124, 92, 252, 0.15);
+  --color-green: #22C55E;
+  --color-green-dim: rgba(34, 197, 94, 0.12);
+  --color-red: #EF4444;
+  --color-red-dim: rgba(239, 68, 68, 0.12);
+  --color-amber: #F59E0B;
+  --color-amber-dim: rgba(245, 158, 11, 0.12);
+  --color-text-primary: #F0F4FF;
+  --color-text-secondary: #8B9CC8;
+  --color-text-muted: #4E5E85;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  background-color: #0B1220;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #F0F4FF;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(91, 140, 255, 0.2);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(91, 140, 255, 0.4);
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes float-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-float-up {
+  animation: float-up 0.5s ease forwards;
+}
+
+.animate-float-up-delay-1 { animation: float-up 0.5s 0.1s ease both; }
+.animate-float-up-delay-2 { animation: float-up 0.5s 0.2s ease both; }
+.animate-float-up-delay-3 { animation: float-up 0.5s 0.3s ease both; }
+.animate-float-up-delay-4 { animation: float-up 0.5s 0.4s ease both; }
