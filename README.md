@@ -1,5 +1,16 @@
 # MARKET PULSE
 
+This repository contains the Market Pulse dashboard experience for weekly reporting workflows and UI exploration.
+
+## Local development
+
+Run the app locally with:
+
+```bash
+pnpm install
+pnpm dev
+```
+
 *Product Requirements Document: Agent Build*
 
 **Agent name:** Market Pulse
