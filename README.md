@@ -4,12 +4,19 @@ This repository contains the Market Pulse dashboard experience for weekly report
 
 ## Local development
 
-Run the app locally with:
+This project uses **npm** (one lockfile: `package-lock.json`).
 
 ```bash
-pnpm install
-pnpm dev
+# frontend (docs site + report app at :5173, V2 dashboard at /v2)
+npm install
+npm run dev
+
+# backend (FastAPI agent at :8000)
+.venv\Scripts\activate
+uvicorn app.main:app --port 8000
 ```
+
+The frontend proxies `/api/*` to the backend. Work on branches and open a PR — please don't push directly to `main`.
 
 *Product Requirements Document: Agent Build*
 

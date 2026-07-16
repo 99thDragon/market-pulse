@@ -1,6 +1,19 @@
+# Frontend
 node_modules/
 dist/
+build/
+.next/
 .vite/
+coverage/
+.vscode/
+.DS_Store
+
+# Backend
+.venv/
+__pycache__/
+
+# Secrets — never committed
 .env
 .env.*
-.DS_Store
+
+.vercel
