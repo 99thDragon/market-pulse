@@ -51,14 +51,14 @@ export default function AppShell({ children }) {
             <FiMenu size={22} />
           </button>
 
-          <Link to={appMode ? "/app/report" : "/"} className="header-brand">
+          <Link to={appMode ? "/app/report" : "/docs"} className="header-brand">
             <h2>Market Pulse</h2>
             <span>{appMode ? "Reports" : "Documentation"}</span>
           </Link>
 
           <nav className="mode-toggle" aria-label="Switch between docs and reports">
             <Link
-              to="/"
+              to="/docs"
               className={clsx("mode-toggle-link", !appMode && "mode-toggle-link--active")}
             >
               Documentation
