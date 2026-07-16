@@ -1,5 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './index.css'
+
+// ─── Live agent data ──────────────────────────────────────────────────────────
+
+type ApiFlag = { metric: string; change: string; direction: string; cause: string; source: string }
+type ApiChannel = { id: string; name: string; status: string; metrics: { label: string; value: string }[] }
+type ApiReport = { period?: string; baseline_week?: string | null; channels?: ApiChannel[]; flags?: ApiFlag[] }
+
+function flagsForChannel(channel: ApiChannel, flags: ApiFlag[]): ApiFlag[] {
+  const name = channel.name.toLowerCase()
+  const id = channel.id.replace('_', ' ')
+  return flags.filter(f =>
+    (f.source || '').toLowerCase().includes(id) ||
+    (f.source || '').toLowerCase().startsWith(name) ||
+    (f.metric || '').toLowerCase().startsWith(name)
+  )
+}
 
 // ─── Icon primitive ───────────────────────────────────────────────────────────
 
@@ -53,6 +69,25 @@ const NAV = [
 export default function App() {
   const [active, setActive] = useState('overview')
   const [running, setRunning] = useState(false)
+  const [report, setReport] = useState<ApiReport | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  const fetchReport = async (refresh = false) => {
+    try {
+      const resp = await fetch(`/api/report${refresh ? '?refresh=1' : ''}`)
+      if (resp.ok) {
+        const payload = await resp.json()
+        setReport(payload.report ?? null)
+      }
+    } catch {
+      setReport(null)
+    }
+    setLoaded(true)
+  }
+
+  useEffect(() => { fetchReport() }, [])
+
+  const flags = report?.flags ?? []
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#080E1A', fontFamily: 'Inter, system-ui, sans-serif', color: '#E2E8F8', overflow: 'hidden' }}>
@@ -160,16 +195,25 @@ export default function App() {
         }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.03em', color: '#F0F4FF', lineHeight: 1 }}>
-              Good morning, Sarah
+              Good morning
             </h1>
             <p style={{ margin: '5px 0 0', fontSize: 13, color: '#3A4A6A', fontWeight: 400 }}>
-              Your AI found{' '}
-              <span style={{ color: '#5B8CFF' }}>4 opportunities</span>
-              {' '}today · last run 12 min ago
+              {!loaded ? (
+                'Connecting to the agent…'
+              ) : report ? (
+                <>
+                  Your AI flagged{' '}
+                  <span style={{ color: '#5B8CFF' }}>{flags.length} change{flags.length !== 1 ? 's' : ''}</span>
+                  {' '}this week · report {report.period}
+                  {report.baseline_week ? ` · vs ${report.baseline_week}` : ' · first run'}
+                </>
+              ) : (
+                'Agent offline — showing design demo'
+              )}
             </p>
           </div>
           <button
-            onClick={() => { setRunning(true); setTimeout(() => setRunning(false), 2000) }}
+            onClick={async () => { setRunning(true); await fetchReport(true); setRunning(false) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -195,18 +239,42 @@ export default function App() {
 
           {/* ── Weekly Intelligence ───────────────────────────────────────── */}
           <section>
-            <SectionLabel>Weekly Intelligence</SectionLabel>
+            <SectionLabel>Weekly Intelligence{report ? ' · Live' : ''}</SectionLabel>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-              <MetricCard source="Google Ads" metric="Click-Through Rate" value="+14%" positive />
-              <MetricCard source="Meta Ads" metric="Conversions" value="-22%" positive={false} />
-              <MetricCard source="Email" metric="Open Rate" value="-13%" positive={false} />
-              <MetricCard source="CRM" metric="Pipeline Data" unavailable />
+              {report?.channels?.length ? (
+                report.channels.map(channel => {
+                  if (channel.status === 'unavailable') {
+                    return <MetricCard key={channel.id} source={channel.name} metric="Data unavailable" unavailable />
+                  }
+                  const channelFlags = flagsForChannel(channel, flags)
+                  if (channelFlags.length === 0) {
+                    return <MetricCard key={channel.id} source={channel.name} metric="No significant change" value="Stable" neutral />
+                  }
+                  const flag = channelFlags[0]
+                  return (
+                    <MetricCard
+                      key={channel.id}
+                      source={channel.name}
+                      metric={flag.metric.replace(new RegExp(`^${channel.name}\\s*`, 'i'), '')}
+                      value={flag.change.split(' / ')[0]}
+                      positive={flag.direction === 'up'}
+                    />
+                  )
+                })
+              ) : (
+                <>
+                  <MetricCard source="Google Ads" metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
+                  <MetricCard source="Meta Ads" metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
+                  <MetricCard source="Email" metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
+                  <MetricCard source="CRM" metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
+                </>
+              )}
             </div>
           </section>
 
           {/* ── Opportunities ─────────────────────────────────────────────── */}
           <section style={{ paddingBottom: 48 }}>
-            <SectionLabel>Active Opportunities</SectionLabel>
+            <SectionLabel>Active Opportunities · Demo</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {OPPS.map((o, i) => <OppRow key={o.id} opp={o} rank={i + 1} />)}
             </div>
@@ -266,7 +334,7 @@ function HeroCard() {
               display: 'flex', alignItems: 'center', gap: 5,
             }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#7C5CFC' }} />
-              AI Discovery · New today
+              AI Discovery · Demo concept
             </span>
           </div>
 
@@ -423,10 +491,10 @@ function HeroCard() {
 
 // ─── Metric Card ──────────────────────────────────────────────────────────────
 
-function MetricCard({ source, metric, value, positive, unavailable }: {
-  source: string; metric: string; value?: string; positive?: boolean; unavailable?: boolean
+function MetricCard({ source, metric, value, positive, unavailable, neutral }: {
+  source: string; metric: string; value?: string; positive?: boolean; unavailable?: boolean; neutral?: boolean
 }) {
-  const valColor = unavailable ? '#2D3D5C' : positive ? '#22C55E' : '#EF4444'
+  const valColor = unavailable ? '#2D3D5C' : neutral ? '#4A5A7A' : positive ? '#22C55E' : '#EF4444'
 
   return (
     <div
@@ -454,7 +522,7 @@ function MetricCard({ source, metric, value, positive, unavailable }: {
       {/* Metric label + trend icon */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 12, color: '#2D3D5C', fontWeight: 400 }}>{metric}</span>
-        {!unavailable && (
+        {!unavailable && !neutral && (
           <span style={{ color: valColor, opacity: 0.7 }}>
             <Icon d={positive ? I.arrowUp : I.arrowDown} size={13} />
           </span>
