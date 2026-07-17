@@ -514,19 +514,120 @@ function IntegrationsView({ report, loaded }: { report: ApiReport | null; loaded
   )
 }
 
+type AnalystBar = { label: string; value: number; display: string; direction: string; highlight?: boolean; note?: string }
+type Analysis = { headline?: string; chart?: { title?: string; unit?: string; bars?: AnalystBar[] }; takeaway?: string; error?: string }
+
+function DivergingBars({ bars }: { bars: AnalystBar[] }) {
+  if (bars.length === 0) {
+    return <div style={{ color: '#4A5A7A', fontSize: 13, padding: '8px 0' }}>Nothing moved beyond normal variation — a calm week.</div>
+  }
+  const max = Math.max(...bars.map(b => Math.abs(b.value)), 1)
+  const color = (d: string) => (d === 'up' ? '#22C55E' : d === 'conflict' ? '#F59E0B' : '#EF4444')
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {bars.map((b, i) => {
+        const pct = (Math.abs(b.value) / max) * 50 // half-width max; center = 0
+        const c = color(b.direction)
+        return (
+          <div key={i} className={`animate-float-up-delay-${Math.min(i + 1, 4)}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontSize: 13, fontWeight: b.highlight ? 700 : 500, color: b.highlight ? '#F0F4FF' : '#8B9CC8' }}>
+                {b.label}{b.highlight && <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', color: '#7AABFF', textTransform: 'uppercase' }}>look here</span>}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: c, fontFamily: '"JetBrains Mono", monospace' }}>{b.display}</span>
+            </div>
+            {/* track with a centre line; bar grows left (down) or right (up) from centre */}
+            <div style={{ position: 'relative', height: 10, background: 'rgba(255,255,255,0.04)', borderRadius: 5 }}>
+              <div style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 1, background: 'rgba(255,255,255,0.12)' }} />
+              <div style={{
+                position: 'absolute', top: 0, height: 10, borderRadius: 5,
+                background: c, opacity: b.highlight ? 1 : 0.55,
+                width: `${pct}%`,
+                left: b.value >= 0 ? '50%' : `${50 - pct}%`,
+              }} />
+            </div>
+            {b.note && <div style={{ fontSize: 11, color: '#4A5A7A', marginTop: 4 }}>{b.note}</div>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function AnalystView() {
+  const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+
+  const load = async (refresh = false) => {
+    if (refresh) setGenerating(true)
+    try {
+      const resp = await fetch(`/api/analyst${refresh ? '?refresh=1' : ''}`)
+      const payload = resp.ok ? await resp.json() : {}
+      setAnalysis(payload.analysis ?? null)
+    } catch {
+      setAnalysis(null)
+    }
+    setLoading(false)
+    setGenerating(false)
+  }
+
+  useEffect(() => { load() }, [])
+
   return (
     <section style={{ paddingBottom: 48 }}>
-      <SectionLabel>AI Analyst</SectionLabel>
-      <div style={{ ...panelStyle, padding: '36px 32px', textAlign: 'center' }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, margin: '0 auto 16px', background: 'linear-gradient(135deg, #5B8CFF, #7C5CFC)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon d={I.brain} size={20} />
-        </div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: '#F0F4FF', marginBottom: 8 }}>Visual data stories — coming soon</div>
-        <p style={{ fontSize: 13, color: '#8B9CC8', lineHeight: 1.6, maxWidth: 460, margin: '0 auto' }}>
-          The AI Analyst will turn each week's report into a chart that tells the story — the right visualization for what moved, with a plain-English read on what to do next.
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <SectionLabel>AI Analyst</SectionLabel>
+        <button
+          onClick={() => load(true)}
+          disabled={generating}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 8,
+            border: '1px solid rgba(91,140,255,0.2)', background: 'rgba(91,140,255,0.12)', color: '#7AABFF',
+            fontSize: 12, fontWeight: 500, cursor: generating ? 'default' : 'pointer',
+          }}
+        >
+          {generating
+            ? <><span className="eq" aria-hidden="true"><span /><span /><span /><span /></span> Analyzing…</>
+            : <><Icon d={I.brain} size={13} /> {analysis ? 'Re-analyze' : 'Analyze this week'}</>}
+        </button>
       </div>
+
+      {loading && <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>Loading…</div>}
+
+      {!loading && !analysis && (
+        <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>
+          No analysis yet. Click “Analyze this week” to turn the report into a visual story.
+        </div>
+      )}
+
+      {analysis?.error && (
+        <div style={{ ...panelStyle, borderColor: 'rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 13 }}>
+          Analysis failed: {analysis.error}
+        </div>
+      )}
+
+      {analysis && !analysis.error && (
+        <div className="animate-float-up" style={{ ...panelStyle, padding: '28px 30px' }}>
+          {analysis.headline && (
+            <h2 style={{ margin: '0 0 22px', fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', color: '#F0F4FF', lineHeight: 1.2 }}>
+              {analysis.headline}
+            </h2>
+          )}
+          {analysis.chart?.title && (
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#2D3D5C', marginBottom: 16 }}>
+              {analysis.chart.title}
+            </div>
+          )}
+          <DivergingBars bars={analysis.chart?.bars ?? []} />
+          {analysis.takeaway && (
+            <div style={{ marginTop: 24, padding: '16px 18px', borderRadius: 10, background: 'rgba(91,140,255,0.07)', border: '1px solid rgba(91,140,255,0.14)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#7AABFF', marginBottom: 6 }}>What to do</div>
+              <p style={{ margin: 0, fontSize: 14, color: '#C8D4EE', lineHeight: 1.6 }}>{analysis.takeaway}</p>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }
