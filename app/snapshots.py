@@ -20,9 +20,11 @@ load_dotenv()
 
 TABLE = "weekly_snapshots"
 
-# Reserved "channel" value: the generated report itself, cached per week so
-# the UI loads instantly instead of re-running the agent on every visit.
+# Reserved "channel" values: cached artifacts, not real channels. Stored in
+# the same table per week so the UI loads instantly instead of regenerating.
 REPORT_KIND = "_report"
+ANALYST_KIND = "_analyst"
+RESERVED_KINDS = (REPORT_KIND, ANALYST_KIND)
 
 
 def current_week_id(today: date | None = None) -> str:
@@ -63,7 +65,7 @@ def get_prior_snapshot(before_week: str | None = None) -> dict:
             headers=cfg["headers"],
             params={
                 "week_id": f"lt.{cutoff}",
-                "channel": f"neq.{REPORT_KIND}",
+                "channel": f"not.in.({','.join(RESERVED_KINDS)})",
                 "order": "week_id.desc",
                 "limit": 8,
             },
@@ -116,14 +118,14 @@ def save_weekly_snapshot(channel_data: dict, week_id: str | None = None) -> dict
     return {"week_id": wk, "saved_channels": [r["channel"] for r in rows]}
 
 
-def save_report(report: dict, week_id: str | None = None) -> dict:
-    """Cache the generated report for the week (upsert, one per week)."""
-    return save_weekly_snapshot({REPORT_KIND: report}, week_id=week_id)
+def _save_artifact(kind: str, payload: dict, week_id: str | None = None) -> dict:
+    """Cache one artifact row (report, analysis) for the week (upsert)."""
+    return save_weekly_snapshot({kind: payload}, week_id=week_id)
 
 
-def get_saved_report(week_id: str | None = None) -> dict | None:
-    """The cached report for the week, or None (also None on storage errors —
-    a cache miss just means the caller regenerates)."""
+def _get_artifact(kind: str, week_id: str | None = None) -> dict | None:
+    """The cached artifact of `kind` for the week, or None (also None on
+    storage errors — a cache miss just means the caller regenerates)."""
     cfg = _config()
     if cfg is None:
         return None
@@ -133,7 +135,7 @@ def get_saved_report(week_id: str | None = None) -> dict | None:
             headers=cfg["headers"],
             params={
                 "week_id": f"eq.{week_id or current_week_id()}",
-                "channel": f"eq.{REPORT_KIND}",
+                "channel": f"eq.{kind}",
                 "select": "metrics",
                 "limit": 1,
             },
@@ -144,6 +146,22 @@ def get_saved_report(week_id: str | None = None) -> dict | None:
         return None
     rows = resp.json()
     return rows[0]["metrics"] if rows else None
+
+
+def save_report(report: dict, week_id: str | None = None) -> dict:
+    return _save_artifact(REPORT_KIND, report, week_id)
+
+
+def get_saved_report(week_id: str | None = None) -> dict | None:
+    return _get_artifact(REPORT_KIND, week_id)
+
+
+def save_analysis(analysis: dict, week_id: str | None = None) -> dict:
+    return _save_artifact(ANALYST_KIND, analysis, week_id)
+
+
+def get_saved_analysis(week_id: str | None = None) -> dict | None:
+    return _get_artifact(ANALYST_KIND, week_id)
 
 
 def list_saved_reports(limit: int = 12) -> list:
