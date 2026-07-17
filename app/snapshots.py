@@ -24,7 +24,8 @@ TABLE = "weekly_snapshots"
 # the same table per week so the UI loads instantly instead of regenerating.
 REPORT_KIND = "_report"
 ANALYST_KIND = "_analyst"
-RESERVED_KINDS = (REPORT_KIND, ANALYST_KIND)
+GENCOUNT_KIND = "_gencount"  # daily fresh-generation counter (abuse/cost guard)
+RESERVED_KINDS = (REPORT_KIND, ANALYST_KIND, GENCOUNT_KIND)
 
 
 def current_week_id(today: date | None = None) -> str:
@@ -162,6 +163,34 @@ def save_analysis(analysis: dict, week_id: str | None = None) -> dict:
 
 def get_saved_analysis(week_id: str | None = None) -> dict | None:
     return _get_artifact(ANALYST_KIND, week_id)
+
+
+def check_and_bump_gen_budget(limit: int = 40) -> bool:
+    """Best-effort daily cap on fresh AI-Analyst generations (each = a web
+    search + a Claude call on the $20 key). Keyed by calendar date in the
+    same table. Returns True if a fresh generation is allowed."""
+    from datetime import date
+
+    cfg = _config()
+    if cfg is None:
+        return True  # no storage → don't block
+    today = date.today().isoformat()
+    try:
+        resp = requests.get(
+            cfg["endpoint"],
+            headers=cfg["headers"],
+            params={"week_id": f"eq.{today}", "channel": f"eq.{GENCOUNT_KIND}", "select": "metrics", "limit": 1},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+    except requests.RequestException:
+        return True
+    count = rows[0]["metrics"].get("count", 0) if rows else 0
+    if count >= limit:
+        return False
+    _save_artifact(GENCOUNT_KIND, {"count": count + 1}, week_id=today)
+    return True
 
 
 def list_channel_history(rows_limit: int = 200) -> dict:
