@@ -6,7 +6,7 @@ import './index.css'
 
 type ApiFlag = { metric: string; change: string; direction: string; cause: string; source: string }
 type ApiChannel = { id: string; name: string; status: string; metrics: { label: string; value: string }[] }
-type ApiReport = { period?: string; baseline_week?: string | null; channels?: ApiChannel[]; flags?: ApiFlag[] }
+type ApiReport = { period?: string; generatedAt?: string; baseline_week?: string | null; channels?: ApiChannel[]; flags?: ApiFlag[] }
 
 // The agent's real server-side order, narrated during the ~20s run.
 // Adapted from ui-animation-library/preloader.js ("loading = brand story").
@@ -99,17 +99,16 @@ const I = {
 
 // ─── Nav structure ────────────────────────────────────────────────────────────
 
+// Each item renders a real view (see renderView). `demo` items are honest
+// design concepts awaiting backend features; the separator sits before them.
 const NAV = [
-  { id: 'overview',      label: 'Overview',             icon: 'home' },
-  { id: 'opportunities', label: 'Opportunities',         icon: 'zap',         badge: 4 },
-  { id: 'analyst',       label: 'AI Analyst',            icon: 'brain' },
-  { id: 'signals',       label: 'Market Signals',        icon: 'trending' },
-  { id: 'campaign',      label: 'Campaign Intel',        icon: 'pie' },
-  { id: 'competitors',   label: 'Competitors',           icon: 'competitors' },
-  { id: 'reports',       label: 'Reports',               icon: 'file' },
-  { id: 'alerts',        label: 'Alerts',                icon: 'bell',        badge: 2 },
-  { id: 'integrations',  label: 'Integrations',          icon: 'plug' },
-  { id: 'settings',      label: 'Settings',              icon: 'settings' },
+  { id: 'overview',      label: 'Overview',      icon: 'home' },
+  { id: 'reports',       label: 'Reports',       icon: 'file' },
+  { id: 'alerts',        label: 'Alerts',        icon: 'bell' },
+  { id: 'integrations',  label: 'Integrations',  icon: 'plug' },
+  { id: 'analyst',       label: 'AI Analyst',    icon: 'brain' },
+  { id: 'opportunities', label: 'Opportunities', icon: 'zap', demo: true },
+  { id: 'settings',      label: 'Settings',      icon: 'settings' },
 ]
 
 // ─── App ──────────────────────────────────────────────────────────────────────
@@ -181,12 +180,12 @@ export default function App() {
 
         {/* Nav */}
         <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {NAV.map((item, idx) => {
+          {NAV.map((item) => {
             const isActive = active === item.id
-            const isSeparated = idx === 7
+            const badge = item.id === 'alerts' && flags.length > 0 ? flags.length : undefined
             return (
               <div key={item.id}>
-                {isSeparated && (
+                {item.demo && (
                   <div style={{ height: 1, background: 'rgba(255,255,255,0.055)', margin: '10px 8px 10px' }} />
                 )}
                 <button
@@ -205,7 +204,12 @@ export default function App() {
                   <span style={{ fontSize: 13, fontWeight: isActive ? 500 : 400, flex: 1, letterSpacing: '-0.005em' }}>
                     {item.label}
                   </span>
-                  {item.badge !== undefined && (
+                  {item.demo && (
+                    <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.05em', color: '#3A4A6A', textTransform: 'uppercase' }}>
+                      demo
+                    </span>
+                  )}
+                  {badge !== undefined && (
                     <span style={{
                       fontSize: 10, fontWeight: 600,
                       background: isActive ? 'rgba(91,140,255,0.25)' : 'rgba(255,255,255,0.07)',
@@ -213,7 +217,7 @@ export default function App() {
                       borderRadius: 5, padding: '1px 5px',
                       fontFamily: '"JetBrains Mono", monospace',
                     }}>
-                      {item.badge}
+                      {badge}
                     </span>
                   )}
                 </button>
@@ -304,14 +308,14 @@ export default function App() {
             disabled={running}
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
-              padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              padding: '8px 16px', borderRadius: 8, cursor: running ? 'default' : 'pointer',
               fontSize: 13, fontWeight: 500, letterSpacing: '-0.01em',
               background: 'rgba(91,140,255,0.12)',
               color: '#7AABFF',
               border: '1px solid rgba(91,140,255,0.2)',
               transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.18)' }}
+            onMouseEnter={e => { if (!running) (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.18)' }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.12)' }}
           >
             {running ? (
@@ -330,70 +334,225 @@ export default function App() {
           </button>
         </header>
 
-        {/* Content */}
+        {/* Content — one view per sidebar item */}
         <div style={{ padding: '40px 44px', display: 'flex', flexDirection: 'column', gap: 36, maxWidth: 1100 }}>
-
-          {/* ── Hero Opportunity Card ─────────────────────────────────────── */}
-          <HeroCard />
-
-          {/* ── Weekly Intelligence ───────────────────────────────────────── */}
-          <section>
-            <SectionLabel>Weekly Intelligence{report ? ' · Live' : ''}</SectionLabel>
-            {/* Staggered entrance adapted from ui-animation-library/split-lines.js
-                (reading-order reveal) — re-keyed per report so re-runs replay it. */}
-            <div key={report?.generatedAt ?? 'loading'} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-              {report?.channels?.length ? (
-                report.channels.map((channel, index) => {
-                  const stagger = `animate-float-up-delay-${Math.min(index + 1, 4)}`
-                  if (channel.status === 'unavailable') {
-                    return (
-                      <div key={channel.id} className={stagger}>
-                        <MetricCard source={channel.name} metric="Data unavailable" unavailable />
-                      </div>
-                    )
-                  }
-                  const channelFlags = flagsForChannel(channel, flags)
-                  if (channelFlags.length === 0) {
-                    return (
-                      <div key={channel.id} className={stagger}>
-                        <MetricCard source={channel.name} metric="No significant change" value="Stable" neutral />
-                      </div>
-                    )
-                  }
-                  const flag = channelFlags[0]
-                  return (
-                    <div key={channel.id} className={stagger}>
-                      <MetricCard
-                        source={channel.name}
-                        metric={flag.metric.replace(new RegExp(`^${channel.name}\\s*`, 'i'), '')}
-                        value={flag.change.split(' / ')[0]}
-                        positive={flag.direction === 'up'}
-                      />
-                    </div>
-                  )
-                })
-              ) : (
-                <>
-                  <MetricCard source="Google Ads" metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
-                  <MetricCard source="Meta Ads" metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
-                  <MetricCard source="Email" metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
-                  <MetricCard source="CRM" metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
-                </>
-              )}
-            </div>
-          </section>
-
-          {/* ── Opportunities ─────────────────────────────────────────────── */}
-          <section style={{ paddingBottom: 48 }}>
-            <SectionLabel>Active Opportunities · Demo</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {OPPS.map((o, i) => <OppRow key={o.id} opp={o} rank={i + 1} />)}
-            </div>
-          </section>
-
+          {active === 'overview' && <OverviewView report={report} loaded={loaded} flags={flags} />}
+          {active === 'reports' && <ReportsView onOpen={() => setActive('overview')} />}
+          {active === 'alerts' && <AlertsView flags={flags} loaded={loaded} />}
+          {active === 'integrations' && <IntegrationsView report={report} loaded={loaded} />}
+          {active === 'analyst' && <AnalystView />}
+          {active === 'opportunities' && <OpportunitiesView />}
+          {active === 'settings' && <SettingsView />}
         </div>
       </div>
     </div>
+  )
+}
+
+// ─── Views (one per sidebar item) ─────────────────────────────────────────────
+
+const panelStyle: React.CSSProperties = {
+  background: '#0F1829',
+  border: '1px solid rgba(255,255,255,0.06)',
+  borderRadius: 12,
+  padding: '20px 22px',
+}
+
+function WeeklyIntelligence({ report, loaded, flags }: { report: ApiReport | null; loaded: boolean; flags: ApiFlag[] }) {
+  return (
+    <section>
+      <SectionLabel>Weekly Intelligence{report ? ' · Live' : ''}</SectionLabel>
+      {/* Staggered entrance adapted from ui-animation-library/split-lines.js
+          (reading-order reveal) — re-keyed per report so re-runs replay it. */}
+      <div key={report?.generatedAt ?? 'loading'} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {report?.channels?.length ? (
+          report.channels.map((channel, index) => {
+            const stagger = `animate-float-up-delay-${Math.min(index + 1, 4)}`
+            if (channel.status === 'unavailable') {
+              return <div key={channel.id} className={stagger}><MetricCard source={channel.name} metric="Data unavailable" unavailable /></div>
+            }
+            const channelFlags = flagsForChannel(channel, flags)
+            if (channelFlags.length === 0) {
+              return <div key={channel.id} className={stagger}><MetricCard source={channel.name} metric="No significant change" value="Stable" neutral /></div>
+            }
+            const flag = channelFlags[0]
+            return (
+              <div key={channel.id} className={stagger}>
+                <MetricCard
+                  source={channel.name}
+                  metric={flag.metric.replace(new RegExp(`^${channel.name}\\s*`, 'i'), '')}
+                  value={flag.change.split(' / ')[0]}
+                  positive={flag.direction === 'up'}
+                />
+              </div>
+            )
+          })
+        ) : (
+          ['Google Ads', 'Meta Ads', 'Email', 'CRM'].map(name => (
+            <MetricCard key={name} source={name} metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
+          ))
+        )}
+      </div>
+    </section>
+  )
+}
+
+function FlagList({ flags }: { flags: ApiFlag[] }) {
+  if (flags.length === 0) {
+    return <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>No changes flagged this week — every channel held steady against last week's baseline.</div>
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {flags.map((flag, i) => {
+        const color = flag.direction === 'up' ? '#22C55E' : flag.direction === 'conflict' ? '#F59E0B' : '#EF4444'
+        return (
+          <div key={i} className={`animate-float-up-delay-${Math.min(i + 1, 4)}`} style={{ ...panelStyle, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            <div style={{ minWidth: 76 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: '"JetBrains Mono", monospace', letterSpacing: '-0.02em' }}>{flag.change}</div>
+              <div style={{ fontSize: 10, color: '#2D3D5C', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>{flag.direction}</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#E2E8F8', marginBottom: 4 }}>{flag.metric}</div>
+              <div style={{ fontSize: 13, color: '#8B9CC8', lineHeight: 1.55 }}>{flag.cause}</div>
+              <div style={{ fontSize: 11, color: '#2D3D5C', marginTop: 6 }}>{flag.source}</div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function OverviewView({ report, loaded, flags }: { report: ApiReport | null; loaded: boolean; flags: ApiFlag[] }) {
+  return (
+    <>
+      <WeeklyIntelligence report={report} loaded={loaded} flags={flags} />
+      <section style={{ paddingBottom: 48 }}>
+        <SectionLabel>What Changed This Week{report ? '' : ''}</SectionLabel>
+        <FlagList flags={flags} />
+      </section>
+    </>
+  )
+}
+
+function AlertsView({ flags, loaded }: { flags: ApiFlag[]; loaded: boolean }) {
+  return (
+    <section style={{ paddingBottom: 48 }}>
+      <SectionLabel>Alerts{loaded ? ` · ${flags.length}` : ''}</SectionLabel>
+      <FlagList flags={flags} />
+    </section>
+  )
+}
+
+function ReportsView({ onOpen }: { onOpen: () => void }) {
+  const [reports, setReports] = useState<{ id: string; period: string; generatedAt: string; flagCount: number }[] | null>(null)
+  useEffect(() => {
+    fetch('/api/report/archive')
+      .then(r => r.ok ? r.json() : { reports: [] })
+      .then(p => setReports(p.reports ?? []))
+      .catch(() => setReports([]))
+  }, [])
+
+  return (
+    <section style={{ paddingBottom: 48 }}>
+      <SectionLabel>Report Archive</SectionLabel>
+      {reports === null && <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>Loading…</div>}
+      {reports?.length === 0 && <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>No reports stored yet — they archive automatically after each Monday run.</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {(reports ?? []).map((r, i) => (
+          <button
+            key={r.id}
+            onClick={onOpen}
+            className={`animate-float-up-delay-${Math.min(i + 1, 4)}`}
+            style={{ ...panelStyle, cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'inherit' }}
+          >
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#E2E8F8' }}>{r.period}</div>
+              <div style={{ fontSize: 12, color: '#4A5A7A', marginTop: 3 }}>
+                Generated {r.generatedAt ? new Date(r.generatedAt).toLocaleDateString() : '—'} · {r.flagCount} flag{r.flagCount !== 1 ? 's' : ''}
+              </div>
+            </div>
+            <Icon d={I.arrow} size={15} />
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function IntegrationsView({ report, loaded }: { report: ApiReport | null; loaded: boolean }) {
+  const label = (src?: string, status?: string) => {
+    if (status === 'unavailable') return { text: 'Unavailable', color: '#EF4444' }
+    if (src === 'mock' || src === 'simulated') return { text: 'Simulated', color: '#F59E0B' }
+    return { text: 'Live', color: '#22C55E' }
+  }
+  return (
+    <section style={{ paddingBottom: 48 }}>
+      <SectionLabel>Integrations</SectionLabel>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {report?.channels?.length ? (
+          report.channels.map(channel => {
+            const s = label((channel as ApiChannel & { source?: string }).source, channel.status)
+            return (
+              <div key={channel.id} style={{ ...panelStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Icon d={I.plug} size={16} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#E2E8F8' }}>{channel.name}</span>
+                </div>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: s.color }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color }} />
+                  {s.text}
+                </span>
+              </div>
+            )
+          })
+        ) : (
+          <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>{loaded ? 'Agent offline — run a report to see integration status.' : 'Loading…'}</div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function AnalystView() {
+  return (
+    <section style={{ paddingBottom: 48 }}>
+      <SectionLabel>AI Analyst</SectionLabel>
+      <div style={{ ...panelStyle, padding: '36px 32px', textAlign: 'center' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, margin: '0 auto 16px', background: 'linear-gradient(135deg, #5B8CFF, #7C5CFC)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon d={I.brain} size={20} />
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: '#F0F4FF', marginBottom: 8 }}>Visual data stories — coming soon</div>
+        <p style={{ fontSize: 13, color: '#8B9CC8', lineHeight: 1.6, maxWidth: 460, margin: '0 auto' }}>
+          The AI Analyst will turn each week's report into a chart that tells the story — the right visualization for what moved, with a plain-English read on what to do next.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+function OpportunitiesView() {
+  return (
+    <>
+      <HeroCard />
+      <section style={{ paddingBottom: 48 }}>
+        <SectionLabel>Active Opportunities · Demo</SectionLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {OPPS.map((o, i) => <OppRow key={o.id} opp={o} rank={i + 1} />)}
+        </div>
+      </section>
+    </>
+  )
+}
+
+function SettingsView() {
+  return (
+    <section style={{ paddingBottom: 48 }}>
+      <SectionLabel>Settings</SectionLabel>
+      <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13, lineHeight: 1.6 }}>
+        Account and workspace settings will live here. The report runs automatically every Monday morning — see the schedule in the sidebar.
+      </div>
+    </section>
   )
 }
 

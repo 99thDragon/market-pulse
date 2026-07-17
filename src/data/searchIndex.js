@@ -3,7 +3,7 @@ export const searchIndex = [
     id: "docs-home",
     title: "Overview",
     description: "Problem, opportunity, and target users",
-    path: "/",
+    path: "/docs",
     group: "Documentation",
     keywords: "problem opportunity users marketers reporting",
   },
