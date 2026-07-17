@@ -423,13 +423,78 @@ function FlagList({ flags }: { flags: ApiFlag[] }) {
   )
 }
 
+type HeatCell = { week: string; change: number | null }
+type HeatRow = { id: string; name: string; cells: HeatCell[] }
+
+function cellColor(c: number | null): string {
+  if (c === null) return 'rgba(255,255,255,0.03)'
+  const mag = Math.min(Math.abs(c) / 45, 1)
+  const a = 0.12 + 0.8 * mag
+  return c >= 0 ? `rgba(34,197,94,${a})` : `rgba(239,68,68,${a})`
+}
+
+// Channel × week movement heatmap — technique from the IIB Awards 2024 Social
+// Media Dashboard [6879] (weekday×hour engagement grid), transferred to
+// channel×week volatility over ~6 months. Colour = size + direction of the
+// week's biggest move per channel.
+function MovementHeatmap() {
+  const [data, setData] = useState<{ weeks: string[]; channels: HeatRow[] } | null>(null)
+  useEffect(() => {
+    fetch('/api/heatmap').then(r => r.ok ? r.json() : null).then(setData).catch(() => setData(null))
+  }, [])
+
+  if (!data || data.weeks.length === 0) {
+    return <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>No history yet.</div>
+  }
+  const monthLabel = (wk: string) => {
+    const [y, w] = wk.split('-W')
+    const d = new Date(Date.UTC(+y, 0, 1 + (+w - 1) * 7))
+    return d.toLocaleString(undefined, { month: 'short' })
+  }
+
+  return (
+    <div style={{ ...panelStyle, overflowX: 'auto' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `86px repeat(${data.weeks.length}, 1fr)`, gap: 3, minWidth: 620 }}>
+        {data.channels.map(row => (
+          <div key={row.id} style={{ display: 'contents' }}>
+            <div style={{ fontSize: 12, color: '#8B9CC8', display: 'flex', alignItems: 'center' }}>{row.name}</div>
+            {row.cells.map((cell, i) => (
+              <div
+                key={i}
+                title={`${row.name} · ${cell.week}${cell.change === null ? ' · baseline' : ` · ${cell.change > 0 ? '+' : ''}${cell.change}%`}`}
+                style={{ aspectRatio: '1', borderRadius: 3, background: cellColor(cell.change), minWidth: 12 }}
+              />
+            ))}
+          </div>
+        ))}
+        {/* month axis */}
+        <div />
+        {data.weeks.map((wk, i) => {
+          const show = i === 0 || monthLabel(wk) !== monthLabel(data.weeks[i - 1])
+          return <div key={wk} style={{ fontSize: 9, color: '#3A4A6A', textAlign: 'center', marginTop: 4 }}>{show ? monthLabel(wk) : ''}</div>
+        })}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, fontSize: 11, color: '#4A5A7A' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: 'rgba(239,68,68,0.7)' }} /> dropped</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: 'rgba(255,255,255,0.06)' }} /> steady</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: 'rgba(34,197,94,0.7)' }} /> rose</span>
+        <span style={{ marginLeft: 'auto' }}>each cell = the week's biggest move for that channel</span>
+      </div>
+    </div>
+  )
+}
+
 function OverviewView({ report, loaded, flags }: { report: ApiReport | null; loaded: boolean; flags: ApiFlag[] }) {
   return (
     <>
       <WeeklyIntelligence report={report} loaded={loaded} flags={flags} />
-      <section style={{ paddingBottom: 48 }}>
-        <SectionLabel>What Changed This Week{report ? '' : ''}</SectionLabel>
+      <section>
+        <SectionLabel>What Changed This Week</SectionLabel>
         <FlagList flags={flags} />
+      </section>
+      <section style={{ paddingBottom: 48 }}>
+        <SectionLabel>6-Month Channel Movement</SectionLabel>
+        <MovementHeatmap />
       </section>
     </>
   )
