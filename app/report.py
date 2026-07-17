@@ -14,10 +14,20 @@ from app.snapshots import (
     current_week_id,
     get_prior_snapshot,
     get_saved_report,
+    list_channel_history,
     list_saved_reports,
     save_report,
     save_weekly_snapshot,
 )
+
+# Each channel's key metrics; the heatmap cell shows the biggest weekly move
+# among them, so a shock in any metric lights the cell.
+HEATMAP_METRICS = {
+    "google_ads": ("Google Ads", ["spend", "ctr", "conversions", "clicks"]),
+    "meta": ("Meta", ["spend", "ctr", "conversions", "reach"]),
+    "email": ("Email", ["sends", "open_rate", "click_rate"]),
+    "crm": ("CRM", ["new_leads", "deals"]),
+}
 
 load_dotenv()
 
@@ -83,6 +93,29 @@ def _parse_report(text: str):
         return None, f"report was not valid JSON: {exc}"
 
 
+@router.get("/heatmap")
+def channel_heatmap():
+    """A channel × week grid of week-over-week % change for each channel's
+    representative metric — the 6-month movement map."""
+    history = list_channel_history()
+    weeks = sorted(history.keys())
+    channels = []
+    for cid, (name, keys) in HEATMAP_METRICS.items():
+        cells = []
+        for i, wk in enumerate(weeks):
+            cur = history[wk].get(cid, {})
+            prev = history[weeks[i - 1]].get(cid, {}) if i > 0 else {}
+            biggest = None
+            for key in keys:
+                if key in cur and prev.get(key):
+                    change = round((cur[key] - prev[key]) / prev[key] * 100, 1)
+                    if biggest is None or abs(change) > abs(biggest):
+                        biggest = change
+            cells.append({"week": wk, "change": biggest})
+        channels.append({"id": cid, "name": name, "cells": cells})
+    return {"weeks": weeks, "channels": channels}
+
+
 @router.get("/report/run")
 def run_weekly_report():
     """The Monday-morning entry point: always re-runs the agent and caches
@@ -94,7 +127,7 @@ def run_weekly_report():
 def report_archive():
     """Past cached reports, newest first — one entry per stored week."""
     entries = []
-    for row in list_saved_reports():
+    for row in list_saved_reports(limit=30):
         report = row.get("metrics") or {}
         entries.append(
             {

@@ -164,6 +164,33 @@ def get_saved_analysis(week_id: str | None = None) -> dict | None:
     return _get_artifact(ANALYST_KIND, week_id)
 
 
+def list_channel_history(rows_limit: int = 200) -> dict:
+    """All real-channel snapshots grouped by week: {week_id: {channel: metrics}}.
+    Reserved artifact kinds (reports, analyses) are excluded."""
+    cfg = _config()
+    if cfg is None:
+        return {}
+    try:
+        resp = requests.get(
+            cfg["endpoint"],
+            headers=cfg["headers"],
+            params={
+                "channel": f"not.in.({','.join(RESERVED_KINDS)})",
+                "select": "week_id,channel,metrics",
+                "order": "week_id.asc",
+                "limit": rows_limit,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except requests.RequestException:
+        return {}
+    weeks: dict = {}
+    for row in resp.json():
+        weeks.setdefault(row["week_id"], {})[row["channel"]] = row["metrics"]
+    return weeks
+
+
 def list_saved_reports(limit: int = 12) -> list:
     """Cached reports, newest first — feeds the archive page."""
     cfg = _config()
