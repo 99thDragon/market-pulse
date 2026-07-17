@@ -587,7 +587,12 @@ type AnalystChart = {
   metric?: string; value?: string; direction?: string; context?: string  // callout
   pairs?: AnalystPair[]                                        // comparison
 }
-type Analysis = { headline?: string; chart?: AnalystChart; seasonal?: string; takeaway?: string; error?: string }
+type WebContext = { note: string; source?: string }
+type Analysis = {
+  headline?: string; chart?: AnalystChart; svg?: string | null;
+  web_context?: WebContext[]; real_date?: string; seasonal?: string;
+  takeaway?: string; error?: string
+}
 
 function CalloutChart({ chart }: { chart: AnalystChart }) {
   const c = chart.direction === 'up' ? '#22C55E' : chart.direction === 'down' ? '#EF4444' : '#8B9CC8'
@@ -783,12 +788,32 @@ function AnalystView() {
               {analysis.chart.title}
             </div>
           )}
-          {isSlope && (analysis.chart?.bars?.length ?? 0) > 0 && (
+          {!analysis.svg && isSlope && (analysis.chart?.bars?.length ?? 0) > 0 && (
             <div style={{ fontSize: 11, color: '#3A4A6A', marginBottom: 18 }}>
               Each line runs last week → this week, rebased so last week = 100. Steeper = bigger move.
             </div>
           )}
-          <AnalystChartRender chart={analysis.chart} />
+          {/* The agent draws a bespoke chart per week (sanitized server-side);
+              falls back to a structured renderer if the SVG is unusable. */}
+          {analysis.svg ? (
+            <div style={{ width: '100%', maxWidth: 640, margin: '4px auto' }}
+                 dangerouslySetInnerHTML={{ __html: analysis.svg }} />
+          ) : (
+            <AnalystChartRender chart={analysis.chart} />
+          )}
+          {analysis.web_context && analysis.web_context.length > 0 && (
+            <div style={{ marginTop: 22 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#7C5CFC', marginBottom: 8 }}>
+                What was happening then{analysis.real_date ? ` · ${new Date(analysis.real_date).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}` : ''}
+              </div>
+              {analysis.web_context.map((c, i) => (
+                <p key={i} style={{ margin: '0 0 8px', fontSize: 13, color: '#8B9CC8', lineHeight: 1.5 }}>
+                  {c.note}
+                  {c.source && <span style={{ color: '#4A5A7A', fontSize: 11 }}> — {c.source}</span>}
+                </p>
+              ))}
+            </div>
+          )}
           {analysis.seasonal && (
             <div style={{ marginTop: 22, display: 'flex', gap: 9, alignItems: 'flex-start' }}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#7C5CFC', whiteSpace: 'nowrap', marginTop: 2 }}>Seasonal read</span>
