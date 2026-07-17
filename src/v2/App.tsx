@@ -517,40 +517,64 @@ function IntegrationsView({ report, loaded }: { report: ApiReport | null; loaded
 type AnalystBar = { label: string; value: number; display: string; direction: string; highlight?: boolean; note?: string }
 type Analysis = { headline?: string; chart?: { title?: string; unit?: string; bars?: AnalystBar[] }; takeaway?: string; error?: string }
 
-function DivergingBars({ bars }: { bars: AnalystBar[] }) {
+const barColor = (d: string) => (d === 'up' ? '#22C55E' : d === 'conflict' ? '#F59E0B' : '#EF4444')
+
+/* Indexed slope chart. Technique transferred from the IIB Awards 2024 library:
+   the "vs prior" rebasing of the Social Media Dashboard [6879] + the
+   highlight-one / mute-the-rest storytelling of Pathways for Girls [7058].
+   Every metric starts at a shared baseline (100 = last week) on the left and
+   fans to the right by its % change, so the steepest line is the biggest
+   mover and the highlighted line stays colored while the rest recede.
+   Perfect for exactly two time points (this week vs baseline week). */
+function SlopeChart({ bars, baselineWeek, currentWeek }: { bars: AnalystBar[]; baselineWeek?: string; currentWeek?: string }) {
   if (bars.length === 0) {
     return <div style={{ color: '#4A5A7A', fontSize: 13, padding: '8px 0' }}>Nothing moved beyond normal variation — a calm week.</div>
   }
-  const max = Math.max(...bars.map(b => Math.abs(b.value)), 1)
-  const color = (d: string) => (d === 'up' ? '#22C55E' : d === 'conflict' ? '#F59E0B' : '#EF4444')
+
+  const W = 720, H = 300, padT = 28, padB = 40, xL = 66, xR = 470
+  const idx = bars.map(b => 100 + b.value)               // this-week index (last week = 100)
+  const lo = Math.min(100, ...idx), hi = Math.max(100, ...idx)
+  const pad = (hi - lo) * 0.12 || 10
+  const yMin = lo - pad, yMax = hi + pad
+  const y = (v: number) => padT + (yMax - v) / (yMax - yMin) * (H - padT - padB)
+  const yBase = y(100)
+
+  // De-overlap the right-side labels: sort by y, keep ≥ 20px apart.
+  const order = bars.map((b, i) => ({ b, i, yv: y(idx[i]) })).sort((a, z) => a.yv - z.yv)
+  let last = -Infinity
+  for (const o of order) { o.yv = Math.max(o.yv, last + 20); last = o.yv }
+  const labelY = new Map(order.map(o => [o.i, o.yv]))
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', overflow: 'visible' }} role="img" aria-label="Week-over-week change, indexed to last week = 100">
+      {/* baseline reference */}
+      <line x1={xL} y1={yBase} x2={xR} y2={yBase} stroke="rgba(255,255,255,0.14)" strokeDasharray="3 4" />
+      <text x={xL} y={yBase - 8} fill="#3A4A6A" fontSize="11" fontFamily="'JetBrains Mono', monospace">100 · baseline</text>
+      {/* axis endpoints */}
+      <text x={xL} y={H - 16} fill="#4A5A7A" fontSize="12" textAnchor="middle">{baselineWeek || 'Last week'}</text>
+      <text x={xR} y={H - 16} fill="#8B9CC8" fontSize="12" textAnchor="middle" fontWeight="600">{currentWeek || 'This week'}</text>
+      <circle cx={xL} cy={yBase} r="3.5" fill="#4A5A7A" />
+
       {bars.map((b, i) => {
-        const pct = (Math.abs(b.value) / max) * 50 // half-width max; center = 0
-        const c = color(b.direction)
+        const c = barColor(b.direction)
+        const yv = y(idx[i]), ly = labelY.get(i)!
         return (
-          <div key={i} className={`animate-float-up-delay-${Math.min(i + 1, 4)}`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span style={{ fontSize: 13, fontWeight: b.highlight ? 700 : 500, color: b.highlight ? '#F0F4FF' : '#8B9CC8' }}>
-                {b.label}{b.highlight && <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', color: '#7AABFF', textTransform: 'uppercase' }}>look here</span>}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: c, fontFamily: '"JetBrains Mono", monospace' }}>{b.display}</span>
-            </div>
-            {/* track with a centre line; bar grows left (down) or right (up) from centre */}
-            <div style={{ position: 'relative', height: 10, background: 'rgba(255,255,255,0.04)', borderRadius: 5 }}>
-              <div style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 1, background: 'rgba(255,255,255,0.12)' }} />
-              <div style={{
-                position: 'absolute', top: 0, height: 10, borderRadius: 5,
-                background: c, opacity: b.highlight ? 1 : 0.55,
-                width: `${pct}%`,
-                left: b.value >= 0 ? '50%' : `${50 - pct}%`,
-              }} />
-            </div>
-            {b.note && <div style={{ fontSize: 11, color: '#4A5A7A', marginTop: 4 }}>{b.note}</div>}
-          </div>
+          <g key={i} opacity={b.highlight ? 1 : 0.45}>
+            <line x1={xL} y1={yBase} x2={xR} y2={yv} stroke={c} strokeWidth={b.highlight ? 3 : 1.6} strokeLinecap="round" />
+            <circle cx={xR} cy={yv} r={b.highlight ? 5 : 3.5} fill={c} />
+            {/* connector from endpoint to label if de-overlap moved it */}
+            {Math.abs(ly - yv) > 1 && <line x1={xR + 5} y1={yv} x2={xR + 14} y2={ly} stroke={c} strokeWidth="1" opacity="0.5" />}
+            <text x={xR + 18} y={ly - 3} fill={b.highlight ? '#F0F4FF' : '#8B9CC8'} fontSize="12.5" fontWeight={b.highlight ? 700 : 500}>
+              {b.label}
+              {b.highlight && <tspan fill="#7AABFF" fontSize="9" fontWeight="700" dx="6">◂ LOOK HERE</tspan>}
+            </text>
+            <text x={xR + 18} y={ly + 12} fill={c} fontSize="11.5" fontWeight="700" fontFamily="'JetBrains Mono', monospace">
+              {b.display}{b.note ? <tspan fill="#4A5A7A" fontWeight="400" fontFamily="Inter, sans-serif" dx="8">{b.note}</tspan> : null}
+            </text>
+          </g>
         )
       })}
-    </div>
+    </svg>
   )
 }
 
@@ -615,11 +639,16 @@ function AnalystView() {
             </h2>
           )}
           {analysis.chart?.title && (
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#2D3D5C', marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#2D3D5C', marginBottom: 4 }}>
               {analysis.chart.title}
             </div>
           )}
-          <DivergingBars bars={analysis.chart?.bars ?? []} />
+          {(analysis.chart?.bars?.length ?? 0) > 0 && (
+            <div style={{ fontSize: 11, color: '#3A4A6A', marginBottom: 18 }}>
+              Each line runs last week → this week, rebased so last week = 100. Steeper = bigger move.
+            </div>
+          )}
+          <SlopeChart bars={analysis.chart?.bars ?? []} />
           {analysis.takeaway && (
             <div style={{ marginTop: 24, padding: '16px 18px', borderRadius: 10, background: 'rgba(91,140,255,0.07)', border: '1px solid rgba(91,140,255,0.14)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#7AABFF', marginBottom: 6 }}>What to do</div>
