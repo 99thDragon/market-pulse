@@ -580,7 +580,53 @@ function IntegrationsView({ report, loaded }: { report: ApiReport | null; loaded
 }
 
 type AnalystBar = { label: string; value: number; display: string; direction: string; highlight?: boolean; note?: string }
-type Analysis = { headline?: string; chart?: { title?: string; unit?: string; bars?: AnalystBar[] }; takeaway?: string; error?: string }
+type AnalystPair = { label: string; lastDisplay: string; thisDisplay: string; direction: string }
+type AnalystChart = {
+  type?: 'slope' | 'callout' | 'comparison'
+  title?: string; bars?: AnalystBar[]                          // slope
+  metric?: string; value?: string; direction?: string; context?: string  // callout
+  pairs?: AnalystPair[]                                        // comparison
+}
+type Analysis = { headline?: string; chart?: AnalystChart; seasonal?: string; takeaway?: string; error?: string }
+
+function CalloutChart({ chart }: { chart: AnalystChart }) {
+  const c = chart.direction === 'up' ? '#22C55E' : chart.direction === 'down' ? '#EF4444' : '#8B9CC8'
+  return (
+    <div style={{ padding: '20px 0 12px', textAlign: 'center' }}>
+      <div style={{ fontSize: 64, fontWeight: 800, letterSpacing: '-0.05em', color: c, fontFamily: '"JetBrains Mono", monospace', lineHeight: 1 }}>
+        {chart.value}
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: '#F0F4FF', marginTop: 14 }}>{chart.metric}</div>
+      {chart.context && <div style={{ fontSize: 12, color: '#4A5A7A', marginTop: 4 }}>{chart.context}</div>}
+    </div>
+  )
+}
+
+function ComparisonChart({ chart }: { chart: AnalystChart }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {(chart.pairs ?? []).map((p, i) => {
+        const c = p.direction === 'up' ? '#22C55E' : '#EF4444'
+        return (
+          <div key={i} className={`animate-float-up-delay-${Math.min(i + 1, 4)}`} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#E2E8F8' }}>{p.label}</div>
+            <div style={{ fontSize: 15, color: '#4A5A7A', fontFamily: '"JetBrains Mono", monospace' }}>{p.lastDisplay}</div>
+            <Icon d={I.arrow} size={16} />
+            <div style={{ fontSize: 17, fontWeight: 700, color: c, fontFamily: '"JetBrains Mono", monospace', minWidth: 70, textAlign: 'right' }}>{p.thisDisplay}</div>
+          </div>
+        )
+      })}
+      <div style={{ fontSize: 11, color: '#3A4A6A', marginTop: 2 }}>last week → this week</div>
+    </div>
+  )
+}
+
+function AnalystChartRender({ chart }: { chart?: AnalystChart }) {
+  if (!chart) return null
+  if (chart.type === 'callout') return <CalloutChart chart={chart} />
+  if (chart.type === 'comparison') return <ComparisonChart chart={chart} />
+  return <SlopeChart bars={chart.bars ?? []} />  // slope (default)
+}
 
 const barColor = (d: string) => (d === 'up' ? '#22C55E' : d === 'conflict' ? '#F59E0B' : '#EF4444')
 
@@ -644,14 +690,29 @@ function SlopeChart({ bars, baselineWeek, currentWeek }: { bars: AnalystBar[]; b
 }
 
 function AnalystView() {
+  const [weeks, setWeeks] = useState<string[]>([])
+  const [week, setWeek] = useState<string>('')
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
 
-  const load = async (refresh = false) => {
-    if (refresh) setGenerating(true)
+  // Load the list of available weeks from the archive (newest first).
+  useEffect(() => {
+    fetch('/api/report/archive')
+      .then(r => r.ok ? r.json() : { reports: [] })
+      .then(p => {
+        const ws = (p.reports ?? []).map((r: { id: string }) => r.id)
+        setWeeks(ws)
+        if (ws.length) setWeek(ws[0])
+        else setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const load = async (wk: string, refresh = false) => {
+    if (refresh) setGenerating(true); else setLoading(true)
     try {
-      const resp = await fetch(`/api/analyst${refresh ? '?refresh=1' : ''}`)
+      const resp = await fetch(`/api/analyst?week=${wk}${refresh ? '&refresh=1' : ''}`)
       const payload = resp.ok ? await resp.json() : {}
       setAnalysis(payload.analysis ?? null)
     } catch {
@@ -661,32 +722,46 @@ function AnalystView() {
     setGenerating(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (week) load(week) }, [week])
+
+  const isSlope = !analysis?.chart?.type || analysis.chart.type === 'slope'
 
   return (
     <section style={{ paddingBottom: 48 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
         <SectionLabel>AI Analyst</SectionLabel>
-        <button
-          onClick={() => load(true)}
-          disabled={generating}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 8,
-            border: '1px solid rgba(91,140,255,0.2)', background: 'rgba(91,140,255,0.12)', color: '#7AABFF',
-            fontSize: 12, fontWeight: 500, cursor: generating ? 'default' : 'pointer',
-          }}
-        >
-          {generating
-            ? <><span className="eq" aria-hidden="true"><span /><span /><span /><span /></span> Analyzing…</>
-            : <><Icon d={I.brain} size={13} /> {analysis ? 'Re-analyze' : 'Analyze this week'}</>}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <select
+            value={week}
+            onChange={e => setWeek(e.target.value)}
+            style={{
+              padding: '6px 10px', borderRadius: 7, fontSize: 12,
+              background: '#0B1220', color: '#C8D4EE', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+            }}
+          >
+            {weeks.map(w => <option key={w} value={w}>{w}{w === weeks[0] ? ' (this week)' : ''}</option>)}
+          </select>
+          <button
+            onClick={() => load(week, true)}
+            disabled={generating || !week}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 8,
+              border: '1px solid rgba(91,140,255,0.2)', background: 'rgba(91,140,255,0.12)', color: '#7AABFF',
+              fontSize: 12, fontWeight: 500, cursor: generating ? 'default' : 'pointer',
+            }}
+          >
+            {generating
+              ? <><span className="eq" aria-hidden="true"><span /><span /><span /><span /></span> Analyzing…</>
+              : <><Icon d={I.brain} size={13} /> {analysis ? 'Re-analyze' : 'Analyze'}</>}
+          </button>
+        </div>
       </div>
 
       {loading && <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>Loading…</div>}
 
       {!loading && !analysis && (
         <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>
-          No analysis yet. Click “Analyze this week” to turn the report into a visual story.
+          No analysis for {week} yet. Click “Analyze” to turn the report into a visual story.
         </div>
       )}
 
@@ -708,14 +783,20 @@ function AnalystView() {
               {analysis.chart.title}
             </div>
           )}
-          {(analysis.chart?.bars?.length ?? 0) > 0 && (
+          {isSlope && (analysis.chart?.bars?.length ?? 0) > 0 && (
             <div style={{ fontSize: 11, color: '#3A4A6A', marginBottom: 18 }}>
               Each line runs last week → this week, rebased so last week = 100. Steeper = bigger move.
             </div>
           )}
-          <SlopeChart bars={analysis.chart?.bars ?? []} />
+          <AnalystChartRender chart={analysis.chart} />
+          {analysis.seasonal && (
+            <div style={{ marginTop: 22, display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#7C5CFC', whiteSpace: 'nowrap', marginTop: 2 }}>Seasonal read</span>
+              <p style={{ margin: 0, fontSize: 13, color: '#8B9CC8', lineHeight: 1.55 }}>{analysis.seasonal}</p>
+            </div>
+          )}
           {analysis.takeaway && (
-            <div style={{ marginTop: 24, padding: '16px 18px', borderRadius: 10, background: 'rgba(91,140,255,0.07)', border: '1px solid rgba(91,140,255,0.14)' }}>
+            <div style={{ marginTop: 20, padding: '16px 18px', borderRadius: 10, background: 'rgba(91,140,255,0.07)', border: '1px solid rgba(91,140,255,0.14)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#7AABFF', marginBottom: 6 }}>What to do</div>
               <p style={{ margin: 0, fontSize: 14, color: '#C8D4EE', lineHeight: 1.6 }}>{analysis.takeaway}</p>
             </div>
