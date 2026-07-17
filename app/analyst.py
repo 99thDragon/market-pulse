@@ -118,39 +118,48 @@ def generate_analysis(report: dict, week_id: str) -> dict:
 
     client = Anthropic(api_key=api_key)
     tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}]
-    messages = [{
-        "role": "user",
-        "content": (
-            f"This report's week maps to the real-world week of {when_iso} ({when}). "
-            f"Search for real marketing/ad-industry context from around then.\n\n"
-            f"Report JSON:\n{json.dumps(report, indent=2)}"
-        ),
-    }]
 
-    # The web_search server tool runs inline; the only thing to resume is a
-    # pause_turn when its server-side loop hits its iteration cap.
-    message = None
-    for _ in range(4):
-        message = client.messages.create(
-            model="claude-sonnet-5",
-            max_tokens=8000,
-            system=SYSTEM_PROMPT,
-            tools=tools,
-            messages=messages,
-        )
-        if message.stop_reason == "pause_turn":
-            messages.append({"role": "assistant", "content": message.content})
-            continue
-        break
+    def _attempt() -> dict:
+        messages = [{
+            "role": "user",
+            "content": (
+                f"This report's week maps to the real-world week of {when_iso} ({when}). "
+                f"Search for real marketing/ad-industry context from around then.\n\n"
+                f"Report JSON:\n{json.dumps(report, indent=2)}"
+            ),
+        }]
+        # The web_search server tool runs inline; the only thing to resume is a
+        # pause_turn when its server-side loop hits its iteration cap. max_tokens
+        # is generous so search results + a full SVG + the JSON all fit.
+        message = None
+        for _ in range(4):
+            message = client.messages.create(
+                model="claude-sonnet-5",
+                max_tokens=16000,
+                system=SYSTEM_PROMPT,
+                tools=tools,
+                messages=messages,
+            )
+            if message.stop_reason == "pause_turn":
+                messages.append({"role": "assistant", "content": message.content})
+                continue
+            break
 
-    text = "".join(b.text for b in (message.content if message else []) if b.type == "text").strip()
-    if text.startswith("```"):
-        text = text.split("```")[1]
-        text = text[4:] if text.startswith("json") else text
-    try:
-        analysis = json.loads(text)
-    except json.JSONDecodeError as exc:
-        return {"error": f"analysis was not valid JSON: {exc}", "raw": text[:400]}
+        text = "".join(b.text for b in (message.content if message else []) if b.type == "text").strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            text = text[4:] if text.startswith("json") else text
+        return json.loads(text)  # raises on truncated/empty output → caller retries
+
+    analysis = None
+    for _ in range(2):  # auto-retry once if the model truncated or returned non-JSON
+        try:
+            analysis = _attempt()
+            break
+        except (json.JSONDecodeError, Exception):
+            analysis = None
+    if analysis is None:
+        return {"error": "analysis was not valid JSON after retry"}
 
     # sanitize the bespoke SVG; drop it (keep the structured fallback) if unsafe
     analysis["svg"] = sanitize_svg(analysis.get("svg"))
