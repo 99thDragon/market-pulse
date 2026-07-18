@@ -57,6 +57,10 @@
   from { opacity: 0; transform: scale(0.985) translateY(10px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
+/* Grid ⇄ List FLIP: top-left origin makes the translate+scale math exact;
+   the inner element counter-scales so text stays crisp mid-morph. */
+.flip-card, .flip-inner { transform-origin: top left; }
+
 .analyst-reveal { animation: ar-fade 0.35s ease both; }
 .analyst-reveal .ar-item {
   animation: ar-rise 0.55s cubic-bezier(0.19, 1, 0.22, 1) both;

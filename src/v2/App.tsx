@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import './index.css'
 
@@ -105,6 +105,8 @@ const I = {
   warning: 'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z M12 9v4 M12 17h.01',
   check: 'M20 6L9 17l-5-5',
   competitors: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+  grid: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+  list: 'M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01',
 }
 
 // ─── Nav structure ────────────────────────────────────────────────────────────
@@ -349,35 +351,39 @@ export default function App() {
               )}
             </p>
           </div>
-          <button
-            onClick={runAgent}
-            disabled={running}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '8px 16px', borderRadius: 8, cursor: running ? 'default' : 'pointer',
-              fontSize: 13, fontWeight: 500, letterSpacing: '-0.01em',
-              background: 'rgba(91,140,255,0.12)',
-              color: '#7AABFF',
-              border: '1px solid rgba(91,140,255,0.2)',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { if (!running) (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.18)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.12)' }}
-          >
-            {running ? (
-              <>
-                <span className="eq" aria-hidden="true"><span /><span /><span /><span /></span>
-                <span className="run-step" key={runStep} style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 12 }}>
-                  {String(runStep + 1).padStart(2, '0')}/{String(RUN_STEPS.length).padStart(2, '0')} · {RUN_STEPS[runStep]}
-                </span>
-              </>
-            ) : (
-              <>
-                <Icon d={I.sparkle} size={13} />
-                Run Analysis
-              </>
-            )}
-          </button>
+          {/* Run Analysis regenerates the weekly report shown in Overview, so
+              it only belongs on that tab. */}
+          {active === 'overview' && (
+            <button
+              onClick={runAgent}
+              disabled={running}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '8px 16px', borderRadius: 8, cursor: running ? 'default' : 'pointer',
+                fontSize: 13, fontWeight: 500, letterSpacing: '-0.01em',
+                background: 'rgba(91,140,255,0.12)',
+                color: '#7AABFF',
+                border: '1px solid rgba(91,140,255,0.2)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { if (!running) (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.18)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,140,255,0.12)' }}
+            >
+              {running ? (
+                <>
+                  <span className="eq" aria-hidden="true"><span /><span /><span /><span /></span>
+                  <span className="run-step" key={runStep} style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 12 }}>
+                    {String(runStep + 1).padStart(2, '0')}/{String(RUN_STEPS.length).padStart(2, '0')} · {RUN_STEPS[runStep]}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Icon d={I.sparkle} size={13} />
+                  Run Analysis
+                </>
+              )}
+            </button>
+          )}
         </header>
 
         {/* Content — one view per sidebar item */}
@@ -405,41 +411,122 @@ const panelStyle: React.CSSProperties = {
 }
 
 function WeeklyIntelligence({ report, loaded, flags }: { report: ApiReport | null; loaded: boolean; flags: ApiFlag[] }) {
+  const [layout, setLayout] = useState<'grid' | 'list'>('grid')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const firstRects = useRef<Map<string, DOMRect>>(new Map())
+  const list = layout === 'list'
+
+  // Grid ⇄ List morph. FLIP technique ported from ui-animation-library
+  // (flip-layout.js LayoutToggle, orig. thelinestudio.com) but done with the
+  // Web Animations API instead of GSAP to keep the app dependency-free:
+  //   First  — snapshot each card's rect before the layout change
+  //   Last   — React re-renders the new layout (grid columns ⇄ stacked rows)
+  //   Invert — transform each card back to its old spot (translate + scale)
+  //   Play   — release to the new spot; the inner content counter-scales so
+  //            text never distorts, with a 0.02s-per-card cascade.
+  const changeLayout = (next: 'grid' | 'list') => {
+    if (next === layout) return
+    const container = containerRef.current
+    if (container) {
+      const snap = new Map<string, DOMRect>()
+      container.querySelectorAll<HTMLElement>('.flip-card').forEach(el =>
+        snap.set(el.dataset.flipKey!, el.getBoundingClientRect()))
+      firstRects.current = snap
+    }
+    setLayout(next)
+  }
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container || firstRects.current.size === 0) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const cards = [...container.querySelectorAll<HTMLElement>('.flip-card')]
+    cards.forEach((el, i) => {
+      const first = firstRects.current.get(el.dataset.flipKey!)
+      if (!first) return
+      const lastRect = el.getBoundingClientRect()
+      const dx = first.left - lastRect.left
+      const dy = first.top - lastRect.top
+      const sx = lastRect.width ? first.width / lastRect.width : 1
+      const sy = lastRect.height ? first.height / lastRect.height : 1
+      if (reduce || (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01)) return
+      const opts = { duration: 620, delay: i * 20, easing: 'cubic-bezier(0.76, 0, 0.24, 1)', fill: 'both' as FillMode }
+      el.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` }, { transform: 'none' }], opts)
+      const inner = el.querySelector<HTMLElement>('.flip-inner')
+      if (inner) inner.animate([{ transform: `scale(${1 / sx}, ${1 / sy})` }, { transform: 'none' }], opts)
+    })
+    firstRects.current = new Map()
+  }, [layout])
+
+  const cards = report?.channels?.length
+    ? report.channels.map((channel) => {
+        if (channel.status === 'unavailable') {
+          return <MetricCard key={channel.id} source={channel.name} metric="Data unavailable" unavailable horizontal={list} />
+        }
+        const channelFlags = flagsForChannel(channel, flags)
+        if (channelFlags.length === 0) {
+          return <MetricCard key={channel.id} source={channel.name} metric="No significant change" value="Stable" neutral horizontal={list} />
+        }
+        const flag = channelFlags[0]
+        return (
+          <MetricCard
+            key={channel.id}
+            source={channel.name}
+            metric={flag.metric.replace(new RegExp(`^${channel.name}\\s*`, 'i'), '')}
+            value={flag.change.split(' / ')[0]}
+            positive={flag.direction === 'up'}
+            horizontal={list}
+          />
+        )
+      })
+    : ['Google Ads', 'Meta Ads', 'Email', 'CRM'].map(name => (
+        <MetricCard key={name} source={name} metric={loaded ? 'Agent offline' : 'Loading…'} unavailable horizontal={list} />
+      ))
+
   return (
     <section>
-      <SectionLabel>Weekly Intelligence{report ? ' · Live' : ''}</SectionLabel>
-      {/* Staggered entrance adapted from ui-animation-library/split-lines.js
-          (reading-order reveal) — re-keyed per report so re-runs replay it. */}
-      <div key={report?.generatedAt ?? 'loading'} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {report?.channels?.length ? (
-          report.channels.map((channel, index) => {
-            const stagger = `animate-float-up-delay-${Math.min(index + 1, 4)}`
-            if (channel.status === 'unavailable') {
-              return <div key={channel.id} className={stagger}><MetricCard source={channel.name} metric="Data unavailable" unavailable /></div>
-            }
-            const channelFlags = flagsForChannel(channel, flags)
-            if (channelFlags.length === 0) {
-              return <div key={channel.id} className={stagger}><MetricCard source={channel.name} metric="No significant change" value="Stable" neutral /></div>
-            }
-            const flag = channelFlags[0]
-            return (
-              <div key={channel.id} className={stagger}>
-                <MetricCard
-                  source={channel.name}
-                  metric={flag.metric.replace(new RegExp(`^${channel.name}\\s*`, 'i'), '')}
-                  value={flag.change.split(' / ')[0]}
-                  positive={flag.direction === 'up'}
-                />
-              </div>
-            )
-          })
-        ) : (
-          ['Google Ads', 'Meta Ads', 'Email', 'CRM'].map(name => (
-            <MetricCard key={name} source={name} metric={loaded ? 'Agent offline' : 'Loading…'} unavailable />
-          ))
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <SectionLabel>Weekly Intelligence{report ? ' · Live' : ''}</SectionLabel>
+        <LayoutToggle layout={layout} onChange={changeLayout} />
+      </div>
+      <div
+        ref={containerRef}
+        style={list
+          ? { display: 'flex', flexDirection: 'column', gap: 10 }
+          : { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}
+      >
+        {cards}
       </div>
     </section>
+  )
+}
+
+// Grid/List switch — two segmented buttons mirroring the library's data-layout
+// toggle, styled to match the dashboard.
+function LayoutToggle({ layout, onChange }: { layout: 'grid' | 'list'; onChange: (l: 'grid' | 'list') => void }) {
+  const opts: { id: 'grid' | 'list'; icon: string }[] = [{ id: 'grid', icon: I.grid }, { id: 'list', icon: I.list }]
+  return (
+    <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      {opts.map(o => {
+        const on = layout === o.id
+        return (
+          <button
+            key={o.id}
+            onClick={() => onChange(o.id)}
+            title={`${o.id[0].toUpperCase()}${o.id.slice(1)} view`}
+            aria-pressed={on}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 26, borderRadius: 6, border: 'none', cursor: 'pointer',
+              background: on ? 'rgba(91,140,255,0.16)' : 'transparent',
+              color: on ? '#7AABFF' : '#4A5A7A', transition: 'all 0.12s',
+            }}
+          >
+            <Icon d={o.icon} size={14} />
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -1282,48 +1369,60 @@ function HeroCard() {
 
 // ─── Metric Card ──────────────────────────────────────────────────────────────
 
-function MetricCard({ source, metric, value, positive, unavailable, neutral }: {
-  source: string; metric: string; value?: string; positive?: boolean; unavailable?: boolean; neutral?: boolean
+function MetricCard({ source, metric, value, positive, unavailable, neutral, horizontal }: {
+  source: string; metric: string; value?: string; positive?: boolean; unavailable?: boolean; neutral?: boolean; horizontal?: boolean
 }) {
   const valColor = unavailable ? '#2D3D5C' : neutral ? '#4A5A7A' : positive ? '#22C55E' : '#EF4444'
 
+  const trend = !unavailable && !neutral
+    ? <span style={{ color: valColor, opacity: 0.7, display: 'flex' }}><Icon d={positive ? I.arrowUp : I.arrowDown} size={13} /></span>
+    : null
+  const offline = unavailable
+    ? <span style={{ fontSize: 10, fontWeight: 500, color: '#2D3D5C', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 4, padding: '2px 7px' }}>Offline</span>
+    : null
+
   return (
     <div
+      className="flip-card"
+      data-flip-key={source}
       style={{
         background: '#0F1829',
         border: '1px solid rgba(255,255,255,0.06)',
         borderRadius: 12,
-        padding: '20px 20px',
         cursor: 'pointer',
         transition: 'border-color 0.15s',
+        overflow: 'hidden',
       }}
       onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'}
       onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'}
     >
-      {/* Source */}
-      <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#2D3D5C', marginBottom: 12 }}>
-        {source}
-      </div>
-
-      {/* Value */}
-      <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.04em', color: valColor, fontFamily: '"JetBrains Mono", monospace', lineHeight: 1, marginBottom: 8 }}>
-        {unavailable ? '—' : value}
-      </div>
-
-      {/* Metric label + trend icon */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 12, color: '#2D3D5C', fontWeight: 400 }}>{metric}</span>
-        {!unavailable && !neutral && (
-          <span style={{ color: valColor, opacity: 0.7 }}>
-            <Icon d={positive ? I.arrowUp : I.arrowDown} size={13} />
-          </span>
-        )}
-        {unavailable && (
-          <span style={{ fontSize: 10, fontWeight: 500, color: '#2D3D5C', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 4, padding: '2px 7px' }}>
-            Offline
-          </span>
-        )}
-      </div>
+      {horizontal ? (
+        /* List row: source · value · metric · trend */
+        <div className="flip-inner" style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#2D3D5C', width: 92, flexShrink: 0 }}>
+            {source}
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.04em', color: valColor, fontFamily: '"JetBrains Mono", monospace', lineHeight: 1, width: 96, flexShrink: 0 }}>
+            {unavailable ? '—' : value}
+          </div>
+          <span style={{ flex: 1, fontSize: 12, color: '#2D3D5C', fontWeight: 400 }}>{metric}</span>
+          {trend || offline}
+        </div>
+      ) : (
+        /* Grid card: source over value over metric */
+        <div className="flip-inner" style={{ padding: '20px 20px' }}>
+          <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#2D3D5C', marginBottom: 12 }}>
+            {source}
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.04em', color: valColor, fontFamily: '"JetBrains Mono", monospace', lineHeight: 1, marginBottom: 8 }}>
+            {unavailable ? '—' : value}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 12, color: '#2D3D5C', fontWeight: 400 }}>{metric}</span>
+            {trend || offline}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
