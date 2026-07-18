@@ -995,37 +995,39 @@ function AnalystView() {
       )}
 
       {analysis && !analysis.error && revealed && (
-        <div key={analysis.generated_at} className="animate-float-up" style={{ ...panelStyle, padding: '28px 30px' }}>
+        <div key={analysis.generated_at} className="analyst-reveal" style={{ ...panelStyle, padding: '28px 30px' }}>
           {analysis.headline && (
-            <h2 style={{ margin: '0 0 22px', fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', color: '#F0F4FF', lineHeight: 1.2 }}>
+            <h2 className="ar-item" style={{ margin: '0 0 22px', fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', color: '#F0F4FF', lineHeight: 1.2, ['--ar-i' as string]: 0 } as React.CSSProperties}>
               {analysis.headline}
             </h2>
           )}
           {analysis.chart?.title && (
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#2D3D5C', marginBottom: 4 }}>
+            <div className="ar-item" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#2D3D5C', marginBottom: 4, ['--ar-i' as string]: 1 } as React.CSSProperties}>
               {analysis.chart.title}
             </div>
           )}
           {!analysis.svg && isSlope && (analysis.chart?.bars?.length ?? 0) > 0 && (
-            <div style={{ fontSize: 11, color: '#3A4A6A', marginBottom: 18 }}>
+            <div className="ar-item" style={{ fontSize: 11, color: '#3A4A6A', marginBottom: 18, ['--ar-i' as string]: 1 } as React.CSSProperties}>
               Each line runs last week → this week, rebased so last week = 100. Steeper = bigger move.
             </div>
           )}
           {/* The agent draws a bespoke chart per week (sanitized server-side);
               falls back to a structured renderer if the SVG is unusable. */}
-          {analysis.svg ? (
-            <div style={{ width: '100%', maxWidth: 640, margin: '4px auto' }}
-              dangerouslySetInnerHTML={{ __html: analysis.svg }} />
-          ) : (
-            <AnalystChartRender chart={analysis.chart} />
-          )}
+          <div className="ar-chart" style={{ ['--ar-i' as string]: 2 } as React.CSSProperties}>
+            {analysis.svg ? (
+              <div style={{ width: '100%', maxWidth: 640, margin: '4px auto' }}
+                dangerouslySetInnerHTML={{ __html: analysis.svg }} />
+            ) : (
+              <AnalystChartRender chart={analysis.chart} />
+            )}
+          </div>
           {analysis.web_context && analysis.web_context.length > 0 && (
             <div style={{ marginTop: 22 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#7C5CFC', marginBottom: 8 }}>
+              <div className="ar-item" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#7C5CFC', marginBottom: 8, ['--ar-i' as string]: 3 } as React.CSSProperties}>
                 What was happening then{analysis.real_date ? ` · ${new Date(analysis.real_date).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}` : ''}
               </div>
               {analysis.web_context.map((c, i) => (
-                <p key={i} style={{ margin: '0 0 8px', fontSize: 13, color: '#8B9CC8', lineHeight: 1.5 }}>
+                <p key={i} className="ar-item" style={{ margin: '0 0 8px', fontSize: 13, color: '#8B9CC8', lineHeight: 1.5, ['--ar-i' as string]: 4 + i } as React.CSSProperties}>
                   {c.note}
                   {c.source && <span style={{ color: '#4A5A7A', fontSize: 11 }}> — {c.source}</span>}
                 </p>
@@ -1033,13 +1035,13 @@ function AnalystView() {
             </div>
           )}
           {analysis.seasonal && (
-            <div style={{ marginTop: 22, display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+            <div className="ar-item" style={{ marginTop: 22, display: 'flex', gap: 9, alignItems: 'flex-start', ['--ar-i' as string]: 7 } as React.CSSProperties}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#7C5CFC', whiteSpace: 'nowrap', marginTop: 2 }}>Seasonal read</span>
               <p style={{ margin: 0, fontSize: 13, color: '#8B9CC8', lineHeight: 1.55 }}>{analysis.seasonal}</p>
             </div>
           )}
           {analysis.takeaway && (
-            <div style={{ marginTop: 20, padding: '16px 18px', borderRadius: 10, background: 'rgba(91,140,255,0.07)', border: '1px solid rgba(91,140,255,0.14)' }}>
+            <div className="ar-item" style={{ marginTop: 20, padding: '16px 18px', borderRadius: 10, background: 'rgba(91,140,255,0.07)', border: '1px solid rgba(91,140,255,0.14)', ['--ar-i' as string]: 8 } as React.CSSProperties}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#7AABFF', marginBottom: 6 }}>What to do</div>
               <p style={{ margin: 0, fontSize: 14, color: '#C8D4EE', lineHeight: 1.6 }}>{analysis.takeaway}</p>
             </div>
