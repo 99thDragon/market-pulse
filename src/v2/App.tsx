@@ -1438,6 +1438,8 @@ function MetricCard({ source, metric, value, positive, unavailable, neutral }: {
         padding: '20px 20px',
         cursor: 'pointer',
         transition: 'border-color 0.15s',
+        height: '100%',          // fill the grid cell so every card matches the tallest
+        boxSizing: 'border-box',
       }}
       onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'}
       onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'}
