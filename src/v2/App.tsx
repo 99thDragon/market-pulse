@@ -756,7 +756,7 @@ type AnalystChart = {
   metric?: string; value?: string; direction?: string; context?: string  // callout
   pairs?: AnalystPair[]                                        // comparison
 }
-type WebContext = { note: string; source?: string }
+type WebContext = { note: string; source?: string; image?: string }
 type Analysis = {
   headline?: string; chart?: AnalystChart; svg?: string | null;
   web_context?: WebContext[]; real_date?: string; seasonal?: string;
@@ -860,6 +860,22 @@ function SlopeChart({ bars, baselineWeek, currentWeek }: { bars: AnalystBar[]; b
         )
       })}
     </svg>
+  )
+}
+
+// Small thumbnail for a "what was happening then" note. Hides itself if the
+// image fails to load, so a dead URL never leaves a broken-image icon.
+function WebContextImage({ src }: { src: string }) {
+  const [ok, setOk] = useState(true)
+  if (!ok) return null
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={() => setOk(false)}
+      style={{ width: 62, height: 62, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)', background: '#0B1220' }}
+    />
   )
 }
 
@@ -1150,10 +1166,13 @@ function AnalystView() {
                 What was happening then{analysis.real_date ? ` · ${new Date(analysis.real_date).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}` : ''}
               </div>
               {analysis.web_context.map((c, i) => (
-                <p key={i} className="ar-item" style={{ margin: '0 0 8px', fontSize: 13, color: '#8B9CC8', lineHeight: 1.5, ['--ar-i' as string]: 4 + i } as React.CSSProperties}>
-                  {c.note}
-                  {c.source && <span style={{ color: '#4A5A7A', fontSize: 11 }}> — {c.source}</span>}
-                </p>
+                <div key={i} className="ar-item" style={{ display: 'flex', gap: 12, alignItems: 'flex-start', margin: '0 0 12px', ['--ar-i' as string]: 4 + i } as React.CSSProperties}>
+                  {c.image && <WebContextImage src={c.image} />}
+                  <p style={{ margin: 0, fontSize: 13, color: '#8B9CC8', lineHeight: 1.5 }}>
+                    {c.note}
+                    {c.source && <span style={{ color: '#4A5A7A', fontSize: 11 }}> — {c.source}</span>}
+                  </p>
+                </div>
               ))}
             </div>
           )}
