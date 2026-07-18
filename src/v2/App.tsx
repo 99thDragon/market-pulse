@@ -711,6 +711,11 @@ function AnalystView() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [analystStep, setAnalystStep] = useState(0)
+  // Demo Mode: pre-generated full-quality results stay hidden until you press
+  // Analyze, then a short progress animation plays and the cached result is
+  // revealed — a preview of the fast, deep experience the app is built toward.
+  const [demoMode, setDemoMode] = useState(false)
+  const [revealed, setRevealed] = useState(true)
 
   // Load the list of available weeks from the archive (newest first).
   useEffect(() => {
@@ -735,6 +740,8 @@ function AnalystView() {
       } catch {
         setAnalysis(null)
       }
+      // In Demo Mode a freshly loaded week starts hidden, primed for the reveal.
+      setRevealed(!demoMode)
       setLoading(false)
       return
     }
@@ -798,6 +805,34 @@ function AnalystView() {
 
   useEffect(() => { if (week) load(week) }, [week])
 
+  // Demo Mode reveal: play the progress bar for a few seconds, then unveil the
+  // pre-generated result already held in `analysis`. No live generation runs.
+  const runDemoReveal = async () => {
+    setGenerating(true)
+    setAnalystStep(0)
+    for (let i = 0; i < ANALYST_STEPS.length; i++) {
+      setAnalystStep(i)
+      await new Promise(r => setTimeout(r, 750))
+    }
+    setGenerating(false)
+    setRevealed(true)
+  }
+
+  // Toggle Demo Mode: turning it on re-hides the current result so it can be
+  // revealed on the next Analyze; turning it off shows whatever is loaded.
+  const toggleDemoMode = () => {
+    const next = !demoMode
+    setDemoMode(next)
+    setRevealed(!next)
+  }
+
+  // Analyze button: in Demo Mode with a pre-generated result, run the reveal;
+  // otherwise generate live.
+  const onAnalyze = () => {
+    if (demoMode && analysis && !analysis.error) runDemoReveal()
+    else load(week, true)
+  }
+
   const isSlope = !analysis?.chart?.type || analysis.chart.type === 'slope'
 
   return (
@@ -816,7 +851,26 @@ function AnalystView() {
             {weeks.map(w => <option key={w} value={w}>{w}{w === weeks[0] ? ' (this week)' : ''}</option>)}
           </select>
           <button
-            onClick={() => load(week, true)}
+            onClick={toggleDemoMode}
+            disabled={generating}
+            title="Demo Mode: reveal the pre-generated deep analysis on Analyze, previewing the fast future experience"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8,
+              border: `1px solid ${demoMode ? 'rgba(245,190,90,0.4)' : 'rgba(255,255,255,0.1)'}`,
+              background: demoMode ? 'rgba(245,190,90,0.14)' : 'transparent',
+              color: demoMode ? '#F5BE5A' : '#5A6A8A',
+              fontSize: 12, fontWeight: 500, cursor: generating ? 'default' : 'pointer',
+            }}
+          >
+            <span style={{
+              width: 7, height: 7, borderRadius: 99,
+              background: demoMode ? '#F5BE5A' : '#3A4A6A',
+              boxShadow: demoMode ? '0 0 6px #F5BE5A' : 'none',
+            }} />
+            Demo Mode
+          </button>
+          <button
+            onClick={onAnalyze}
             disabled={generating || !week}
             style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 8,
@@ -826,7 +880,7 @@ function AnalystView() {
           >
             {generating
               ? <><span className="eq" aria-hidden="true"><span /><span /><span /><span /></span> Analyzing…</>
-              : <><Icon d={I.brain} size={13} /> {analysis ? 'Re-analyze' : 'Analyze'}</>}
+              : <><Icon d={I.brain} size={13} /> {(demoMode && !revealed) || !analysis ? 'Analyze' : 'Re-analyze'}</>}
           </button>
         </div>
       </div>
@@ -844,7 +898,8 @@ function AnalystView() {
                 {ANALYST_STEPS[analystStep].label}…
               </div>
               <div style={{ fontSize: 11, color: '#3A4A6A', marginTop: 2 }}>
-                Step {analystStep + 1} of {ANALYST_STEPS.length} · This takes about 30 seconds
+                Step {analystStep + 1} of {ANALYST_STEPS.length}
+                {demoMode ? ' · deep search + custom chart' : ' · This takes about 30 seconds'}
               </div>
             </div>
           </div>
@@ -883,13 +938,27 @@ function AnalystView() {
         </div>
       )}
 
+      {/* ── Demo Mode: primed, waiting for the reveal ── */}
+      {demoMode && !revealed && !generating && !loading && analysis && !analysis.error && (
+        <div style={{ ...panelStyle, padding: '26px 28px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, marginBottom: 10 }}>✨</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#C8D4EE', marginBottom: 6 }}>
+            Ready to analyze {week}
+          </div>
+          <div style={{ fontSize: 12, color: '#5A6A8A', lineHeight: 1.5, maxWidth: 380, margin: '0 auto' }}>
+            Press <span style={{ color: '#7AABFF', fontWeight: 600 }}>Analyze</span> to watch the agent run a deep
+            web search and draw a custom chart for this week.
+          </div>
+        </div>
+      )}
+
       {analysis?.error && (
         <div style={{ ...panelStyle, borderColor: 'rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 13 }}>
           Analysis failed: {analysis.error}
         </div>
       )}
 
-      {analysis && !analysis.error && (
+      {analysis && !analysis.error && revealed && (
         <div key={analysis.generated_at} className="animate-float-up" style={{ ...panelStyle, padding: '28px 30px' }}>
           {analysis.headline && (
             <h2 style={{ margin: '0 0 22px', fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', color: '#F0F4FF', lineHeight: 1.2 }}>
