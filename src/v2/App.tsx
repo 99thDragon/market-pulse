@@ -107,6 +107,7 @@ const I = {
   competitors: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
   grid: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
   list: 'M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01',
+  pulse: 'M22 12h-4l-3 9L9 3l-3 9H2',
 }
 
 // ─── Nav structure ────────────────────────────────────────────────────────────
@@ -205,7 +206,7 @@ export default function App() {
             background: 'linear-gradient(135deg, #5B8CFF 0%, #7C5CFC 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Icon d={I.sparkle} size={13} />
+            <Icon d={I.pulse} size={14} />
           </div>
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.025em', color: '#F0F4FF' }}>
             Market Pulse
