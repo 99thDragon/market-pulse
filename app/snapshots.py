@@ -165,7 +165,7 @@ def get_saved_analysis(week_id: str | None = None) -> dict | None:
     return _get_artifact(ANALYST_KIND, week_id)
 
 
-def check_and_bump_gen_budget(limit: int = 40) -> bool:
+def check_and_bump_gen_budget(limit: int = 120) -> bool:
     """Best-effort daily cap on fresh AI-Analyst generations (each = a web
     search + a Claude call on the $20 key). Keyed by calendar date in the
     same table. Returns True if a fresh generation is allowed."""
