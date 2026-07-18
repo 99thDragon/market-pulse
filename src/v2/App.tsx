@@ -129,10 +129,14 @@ export default function App() {
   const [report, setReport] = useState<ApiReport | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [runStep, setRunStep] = useState(0)
+  // Which week the Overview is showing. null = the current/live week; a week id
+  // means the user opened that report from the archive (read-only).
+  const [viewingWeek, setViewingWeek] = useState<string | null>(null)
 
   const runAgent = async () => {
     setRunning(true)
     setRunStep(0)
+    setViewingWeek(null)  // re-running the agent always targets the current week
     const pacer = setInterval(
       () => setRunStep(step => Math.min(step + 1, RUN_STEPS.length - 1)),
       1600
@@ -142,9 +146,12 @@ export default function App() {
     setRunning(false)
   }
 
-  const fetchReport = async (refresh = false) => {
+  const fetchReport = async (refresh = false, week: string | null = null) => {
     try {
-      const resp = await fetch(`/api/report${refresh ? '?refresh=1' : ''}`)
+      const url = week
+        ? `/api/report?week=${encodeURIComponent(week)}`
+        : `/api/report${refresh ? '?refresh=1' : ''}`
+      const resp = await fetch(url)
       if (resp.ok) {
         const payload = await resp.json()
         setReport(payload.report ?? null)
@@ -153,6 +160,21 @@ export default function App() {
       setReport(null)
     }
     setLoaded(true)
+  }
+
+  // Open an archived week's report in the Overview.
+  const openArchivedReport = (weekId: string) => {
+    setViewingWeek(weekId)
+    setLoaded(false)
+    fetchReport(false, weekId)
+    setActive('overview')
+  }
+
+  // Return the Overview to the live/current week.
+  const backToCurrent = () => {
+    setViewingWeek(null)
+    setLoaded(false)
+    fetchReport()
   }
 
   useEffect(() => { fetchReport() }, [])
@@ -199,7 +221,10 @@ export default function App() {
                   <div style={{ height: 1, background: 'rgba(255,255,255,0.055)', margin: '10px 8px 10px' }} />
                 )}
                 <button
-                  onClick={() => setActive(item.id)}
+                  onClick={() => {
+                    if (item.id === 'overview' && viewingWeek) backToCurrent()
+                    setActive(item.id)
+                  }}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 9,
                     padding: '7px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
@@ -305,8 +330,19 @@ export default function App() {
                 <>
                   Your AI flagged{' '}
                   <span style={{ color: '#5B8CFF' }}>{flags.length} change{flags.length !== 1 ? 's' : ''}</span>
-                  {' '}this week · report {report.period}
+                  {viewingWeek ? ` in ${report.period}` : ` this week · report ${report.period}`}
                   {report.baseline_week ? ` · vs ${report.baseline_week}` : ' · first run'}
+                  {viewingWeek && (
+                    <>
+                      {' · '}
+                      <span
+                        onClick={backToCurrent}
+                        style={{ color: '#7AABFF', cursor: 'pointer', fontWeight: 500 }}
+                      >
+                        ← Back to current week
+                      </span>
+                    </>
+                  )}
                 </>
               ) : (
                 'Agent offline — showing design demo'
@@ -347,7 +383,7 @@ export default function App() {
         {/* Content — one view per sidebar item */}
         <div style={{ padding: '40px 44px', display: 'flex', flexDirection: 'column', gap: 36, maxWidth: 1100 }}>
           {active === 'overview' && <OverviewView report={report} loaded={loaded} flags={flags} />}
-          {active === 'reports' && <ReportsView onOpen={() => setActive('overview')} />}
+          {active === 'reports' && <ReportsView onOpen={openArchivedReport} />}
           {active === 'alerts' && <AlertsView flags={flags} loaded={loaded} />}
           {active === 'integrations' && <IntegrationsView report={report} loaded={loaded} />}
           {active === 'analyst' && <AnalystView />}
@@ -519,7 +555,7 @@ function AlertsView({ flags, loaded }: { flags: ApiFlag[]; loaded: boolean }) {
   )
 }
 
-function ReportsView({ onOpen }: { onOpen: () => void }) {
+function ReportsView({ onOpen }: { onOpen: (weekId: string) => void }) {
   const [reports, setReports] = useState<{ id: string; period: string; generatedAt: string; flagCount: number }[] | null>(null)
   useEffect(() => {
     fetch('/api/report/archive')
@@ -537,7 +573,7 @@ function ReportsView({ onOpen }: { onOpen: () => void }) {
         {(reports ?? []).map((r, i) => (
           <button
             key={r.id}
-            onClick={onOpen}
+            onClick={() => onOpen(r.id)}
             className={`animate-float-up-delay-${Math.min(i + 1, 4)}`}
             style={{ ...panelStyle, cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'inherit' }}
           >
