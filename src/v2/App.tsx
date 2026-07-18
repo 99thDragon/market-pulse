@@ -135,6 +135,8 @@ export default function App() {
   // Which week the Overview is showing. null = the current/live week; a week id
   // means the user opened that report from the archive (read-only).
   const [viewingWeek, setViewingWeek] = useState<string | null>(null)
+  // Demo Mode — lifted here so the toggle persists across tab switches.
+  const [demoMode, setDemoMode] = useState(false)
 
   const runAgent = async () => {
     setRunning(true)
@@ -263,6 +265,29 @@ export default function App() {
             )
           })}
         </nav>
+
+        {/* Demo Mode toggle */}
+        <button
+          onClick={() => setDemoMode(d => !d)}
+          title="Demo Mode: reveal the pre-generated deep analysis on Analyze, previewing the fast future experience"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+            border: `1px solid ${demoMode ? 'rgba(245,190,90,0.3)' : 'rgba(255,255,255,0.055)'}`,
+            background: demoMode ? 'rgba(245,190,90,0.1)' : 'transparent',
+            color: demoMode ? '#F5BE5A' : '#4A5A7A',
+            fontSize: 12, fontWeight: 500, transition: 'all 0.15s',
+            marginTop: 4,
+          }}
+        >
+          <span style={{
+            width: 7, height: 7, borderRadius: 99, flexShrink: 0,
+            background: demoMode ? '#F5BE5A' : '#3A4A6A',
+            boxShadow: demoMode ? '0 0 6px #F5BE5A' : 'none',
+            transition: 'all 0.15s',
+          }} />
+          Demo Mode
+        </button>
 
         {/* Classic app */}
         <div style={{ height: 1, background: 'rgba(255,255,255,0.055)', margin: '10px 8px' }} />
@@ -393,7 +418,7 @@ export default function App() {
           {active === 'reports' && <ReportsView onOpen={openArchivedReport} />}
           {active === 'alerts' && <AlertsView flags={flags} loaded={loaded} />}
           {active === 'integrations' && <IntegrationsView report={report} loaded={loaded} />}
-          {active === 'analyst' && <AnalystView />}
+          {active === 'analyst' && <AnalystView demoMode={demoMode} />}
           {active === 'opportunities' && <OpportunitiesView />}
           {active === 'settings' && <SettingsView />}
         </div>
@@ -475,20 +500,20 @@ function useFlipLayout(layout: string) {
     const container = containerRef.current
     if (!container || firstRects.current.size === 0) return
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ;[...container.querySelectorAll<HTMLElement>('.flip-card')].forEach((el, i) => {
-      const first = firstRects.current.get(el.dataset.flipKey!)
-      if (!first) return
-      const lastRect = el.getBoundingClientRect()
-      const dx = first.left - lastRect.left
-      const dy = first.top - lastRect.top
-      const sx = lastRect.width ? first.width / lastRect.width : 1
-      const sy = lastRect.height ? first.height / lastRect.height : 1
-      if (reduce || (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01)) return
-      const opts = { duration: 620, delay: i * 20, easing: 'cubic-bezier(0.76, 0, 0.24, 1)', fill: 'both' as FillMode }
-      el.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` }, { transform: 'none' }], opts)
-      const inner = el.querySelector<HTMLElement>('.flip-inner')
-      if (inner) inner.animate([{ transform: `scale(${1 / sx}, ${1 / sy})` }, { transform: 'none' }], opts)
-    })
+      ;[...container.querySelectorAll<HTMLElement>('.flip-card')].forEach((el, i) => {
+        const first = firstRects.current.get(el.dataset.flipKey!)
+        if (!first) return
+        const lastRect = el.getBoundingClientRect()
+        const dx = first.left - lastRect.left
+        const dy = first.top - lastRect.top
+        const sx = lastRect.width ? first.width / lastRect.width : 1
+        const sy = lastRect.height ? first.height / lastRect.height : 1
+        if (reduce || (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01)) return
+        const opts = { duration: 620, delay: i * 20, easing: 'cubic-bezier(0.76, 0, 0.24, 1)', fill: 'both' as FillMode }
+        el.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` }, { transform: 'none' }], opts)
+        const inner = el.querySelector<HTMLElement>('.flip-inner')
+        if (inner) inner.animate([{ transform: `scale(${1 / sx}, ${1 / sy})` }, { transform: 'none' }], opts)
+      })
     firstRects.current = new Map()
   }, [layout])
 
@@ -880,17 +905,16 @@ function WebContextImage({ src }: { src: string }) {
   )
 }
 
-function AnalystView() {
+function AnalystView({ demoMode }: { demoMode: boolean }) {
   const [weeks, setWeeks] = useState<string[]>([])
   const [week, setWeek] = useState<string>('')
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [analystStep, setAnalystStep] = useState(0)
-  // Demo Mode: pre-generated full-quality results stay hidden until you press
-  // Analyze, then a short progress animation plays and the cached result is
-  // revealed — a preview of the fast, deep experience the app is built toward.
-  const [demoMode, setDemoMode] = useState(false)
+  // Demo Mode state is lifted to App so it persists across tab switches.
+  // `revealed` is local — it tracks whether the current result has been
+  // unveiled after a demo-reveal animation.
   const [revealed, setRevealed] = useState(true)
 
   // Load the list of available weeks from the archive (newest first).
@@ -994,13 +1018,11 @@ function AnalystView() {
     setRevealed(true)
   }
 
-  // Toggle Demo Mode: turning it on re-hides the current result so it can be
-  // revealed on the next Analyze; turning it off shows whatever is loaded.
-  const toggleDemoMode = () => {
-    const next = !demoMode
-    setDemoMode(next)
-    setRevealed(!next)
-  }
+  // Sync: if demoMode is toggled from the sidebar while we're on this tab,
+  // re-hide or reveal accordingly.
+  useEffect(() => {
+    setRevealed(!demoMode)
+  }, [demoMode])
 
   // Analyze button: in Demo Mode with a pre-generated result, run the reveal;
   // otherwise generate live.
@@ -1026,25 +1048,7 @@ function AnalystView() {
           >
             {weeks.map(w => <option key={w} value={w}>{w}{w === weeks[0] ? ' (this week)' : ''}</option>)}
           </select>
-          <button
-            onClick={toggleDemoMode}
-            disabled={generating}
-            title="Demo Mode: reveal the pre-generated deep analysis on Analyze, previewing the fast future experience"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8,
-              border: `1px solid ${demoMode ? 'rgba(245,190,90,0.4)' : 'rgba(255,255,255,0.1)'}`,
-              background: demoMode ? 'rgba(245,190,90,0.14)' : 'transparent',
-              color: demoMode ? '#F5BE5A' : '#5A6A8A',
-              fontSize: 12, fontWeight: 500, cursor: generating ? 'default' : 'pointer',
-            }}
-          >
-            <span style={{
-              width: 7, height: 7, borderRadius: 99,
-              background: demoMode ? '#F5BE5A' : '#3A4A6A',
-              boxShadow: demoMode ? '0 0 6px #F5BE5A' : 'none',
-            }} />
-            Demo Mode
-          </button>
+
           <button
             onClick={onAnalyze}
             disabled={generating || !week}
