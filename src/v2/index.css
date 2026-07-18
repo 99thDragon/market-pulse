@@ -43,6 +43,31 @@
 .animate-float-up-delay-3 { animation: float-up 0.5s 0.3s cubic-bezier(0.19, 1, 0.22, 1) both; }
 .animate-float-up-delay-4 { animation: float-up 0.5s 0.4s cubic-bezier(0.19, 1, 0.22, 1) both; }
 
+/* ── AI Analyst staggered reveal ─────────────────────────────────────────
+   Ports the split-text line rise (#05) + the single-gesture stagger (#12)
+   from ui-animation-library (orig. thelinestudio.com). CSS-only, no GSAP:
+   the panel fades in while each child rises on a shared 0.07s-per-index
+   cadence (--ar-i), so headline → chart → context notes read as one move. */
+@keyframes ar-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ar-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ar-pop {
+  from { opacity: 0; transform: scale(0.985) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.analyst-reveal { animation: ar-fade 0.35s ease both; }
+.analyst-reveal .ar-item {
+  animation: ar-rise 0.55s cubic-bezier(0.19, 1, 0.22, 1) both;
+  animation-delay: calc(var(--ar-i, 0) * 0.07s);
+}
+.analyst-reveal .ar-chart {
+  animation: ar-pop 0.6s cubic-bezier(0.19, 1, 0.22, 1) both;
+  animation-delay: calc(var(--ar-i, 0) * 0.07s);
+  transform-origin: center 45%;
+}
+
 /* ── Run-sequence, equalizer, schedule clock ─────────────────────────────
    Adapted from ui-animation-library (preloader.js, equalizer.js, clock.js),
    orig. thelinestudio.com. CSS-only ports: scaleY (never layout) for the
@@ -90,6 +115,9 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-float-up,
   [class*="animate-float-up-delay"],
+  .analyst-reveal,
+  .analyst-reveal .ar-item,
+  .analyst-reveal .ar-chart,
   .run-step,
   .eq span,
   .clock-dot {
