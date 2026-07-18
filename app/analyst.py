@@ -107,6 +107,24 @@ def sanitize_svg(svg: str | None) -> str | None:
     return svg
 
 
+def _extract_json(text: str) -> dict:
+    """Parse the model's JSON reply, tolerating a prose preamble and/or a
+    ```json fence. The model sometimes narrates before the JSON (e.g.
+    "Now let me finalize the JSON response...```json{...}```"), so we can't
+    assume the text starts with the fence or the opening brace."""
+    text = text.strip()
+    if "```" in text:  # prefer a fenced block wherever it sits in the text
+        for part in text.split("```")[1:]:
+            candidate = part[4:] if part.startswith("json") else part
+            candidate = candidate.strip()
+            if candidate.startswith("{"):
+                return json.loads(candidate)
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:  # fall back to the outermost braces
+        return json.loads(text[start:end + 1])
+    return json.loads(text)  # nothing brace-like — let it raise for the retry
+
+
 def generate_analysis(report: dict, week_id: str) -> dict:
     """Web-search real context, draw a bespoke chart, and write the story."""
     api_key = os.getenv("ANALYST_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
@@ -146,11 +164,8 @@ def generate_analysis(report: dict, week_id: str) -> dict:
                 continue
             break
 
-        text = "".join(b.text for b in (message.content if message else []) if b.type == "text").strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            text = text[4:] if text.startswith("json") else text
-        return json.loads(text)  # raises on truncated/empty output → caller retries
+        text = "".join(b.text for b in (message.content if message else []) if b.type == "text")
+        return _extract_json(text)  # raises on truncated/empty output → caller retries
 
     analysis = None
     for _ in range(2):  # auto-retry once if the model truncated or returned non-JSON
@@ -274,11 +289,8 @@ def analyst_stream(week: str | None = None, refresh: bool = False):
                 break
 
             yield (json.dumps({"step": 3, "label": "Drawing your chart & writing analysis..."}) + "\n").encode("utf-8")
-            text = "".join(b.text for b in (message.content if message else []) if b.type == "text").strip()
-            if text.startswith("```"):
-                text = text.split("```")[1]
-                text = text[4:] if text.startswith("json") else text
-            analysis = json.loads(text)
+            text = "".join(b.text for b in (message.content if message else []) if b.type == "text")
+            analysis = _extract_json(text)
         except Exception:
             analysis = None
 
