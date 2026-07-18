@@ -14,8 +14,10 @@ daily generation cap.
 import json
 import os
 import re
+import time
 from datetime import date, datetime, timezone
 
+import requests
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastapi import APIRouter
@@ -60,7 +62,7 @@ STEP 3 — Return ONLY a JSON object, no markdown fences, in exactly this shape:
     "context": "<for callout: <=8 words>",
     "pairs": [ { "label": "<for comparison: Channel Metric>", "lastDisplay": "<last>", "thisDisplay": "<this>", "direction": "up|down" } ]
   },
-  "web_context": [ { "note": "<1 sentence of real context, framed as context not proven cause>", "source": "<publication or domain>" } ],
+  "web_context": [ { "note": "<1 sentence of real context, framed as context not proven cause>", "source": "<publication or domain>", "image_query": "<2-4 word real-world topic with a recognizable image, e.g. 'Amazon Prime Day', 'Black Friday shopping', 'Google Ads'; omit the field entirely if nothing concrete fits>" } ],
   "takeaway": "<1-2 sentences: what the marketer should do or watch, grounded in the data>"
 }
 
@@ -125,6 +127,61 @@ def _extract_json(text: str) -> dict:
     return json.loads(text)  # nothing brace-like — let it raise for the retry
 
 
+_WIKI_UA = {"User-Agent": "MarketPulse/1.0 (weekly marketing report demo)"}
+
+
+def _wiki_image(term: str, size: int = 480) -> str | None:
+    """A stable, hotlink-friendly Wikipedia lead-image thumbnail for a topic, or
+    None. Resolve the best article via search, then fetch its page image.
+    Best-effort — any failure just means no image for that item."""
+    term = (term or "").strip()
+    if not term:
+        return None
+    # Retry only on transport/parse errors (rate-limited non-JSON responses); a
+    # valid response with no image returns None immediately.
+    for attempt in range(3):
+        try:
+            hits = requests.get(
+                "https://en.wikipedia.org/w/api.php",
+                params={"action": "query", "list": "search", "srsearch": term, "srlimit": 1, "format": "json"},
+                headers=_WIKI_UA, timeout=8,
+            ).json().get("query", {}).get("search", [])
+            if not hits:
+                return None
+            pages = requests.get(
+                "https://en.wikipedia.org/w/api.php",
+                params={"action": "query", "prop": "pageimages", "piprop": "thumbnail", "pithumbsize": size,
+                        "titles": hits[0]["title"], "redirects": 1, "format": "json"},
+                headers=_WIKI_UA, timeout=8,
+            ).json().get("query", {}).get("pages", {})
+            for _, page in pages.items():
+                src = page.get("thumbnail", {}).get("source")
+                if src and src.startswith("https://"):
+                    return src
+            return None
+        except (requests.RequestException, ValueError, KeyError):
+            time.sleep(0.5 * (attempt + 1))
+    return None
+
+
+def enrich_images(analysis: dict) -> dict:
+    """Attach a relevant Wikipedia image to each web_context item that supplied
+    an image_query. Offline (locked demo) path only — the live button skips this
+    to stay within the serverless time budget. Misses stay imageless; the UI
+    hides any image that fails to load."""
+    cache: dict[str, str | None] = {}
+    for item in analysis.get("web_context", []) or []:
+        query = item.pop("image_query", None)
+        if not query:
+            continue
+        if query not in cache:
+            cache[query] = _wiki_image(query)
+            time.sleep(0.2)  # be gentle with the API
+        if cache[query]:
+            item["image"] = cache[query]
+    return analysis
+
+
 def generate_analysis(report: dict, week_id: str) -> dict:
     """Web-search real context, draw a bespoke chart, and write the story."""
     api_key = os.getenv("ANALYST_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
@@ -181,6 +238,7 @@ def generate_analysis(report: dict, week_id: str) -> dict:
     analysis["svg"] = sanitize_svg(analysis.get("svg"))
     analysis["real_date"] = when_iso
     analysis["generated_at"] = datetime.now(timezone.utc).isoformat()
+    enrich_images(analysis)  # attach Wikipedia images to the web-context notes
     return analysis
 
 
