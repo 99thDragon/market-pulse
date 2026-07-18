@@ -142,11 +142,20 @@ def report_archive():
 
 
 @router.get("/report")
-def weekly_report(refresh: bool = False):
+def weekly_report(refresh: bool = False, week: str | None = None):
     """The Market Pulse weekly report: four channels, compared against the
     prior week's baseline, flags explained — structured JSON per the PRD.
     Returns this week's cached report when one exists; ?refresh=1 re-runs
-    the agent."""
+    the agent; ?week=YYYY-Wnn returns that archived week's stored report."""
+    if week:  # a specific archived week — read-only, never regenerate
+        cached = get_saved_report(week)
+        if cached:
+            return {
+                "report": cached,
+                "cached": True,
+                "baseline_week": cached.get("baseline_week"),
+            }
+        return {"report": None, "cached": False, "note": f"no stored report for {week}"}
     if not refresh:
         cached = get_saved_report()
         if cached:
