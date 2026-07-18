@@ -19,6 +19,16 @@ const RUN_STEPS = [
   'Writing your report',
 ]
 
+// Narrated steps for the AI Analyst (~25–40 s total).
+// Paced at ~6 s each to match the web-search + generation time.
+const ANALYST_STEPS = [
+  { label: 'Searching the web for context', icon: '🔍' },
+  { label: 'Reading industry signals', icon: '📡' },
+  { label: 'Drawing your chart', icon: '📊' },
+  { label: 'Writing the analysis', icon: '✍️' },
+  { label: 'Wrapping up', icon: '⚡' },
+]
+
 // Next Monday 11:00 UTC — the Vercel cron schedule.
 function nextAgentRun(): Date {
   const next = new Date()
@@ -77,23 +87,23 @@ function Icon({ d, size = 16 }: { d: string; size?: number }) {
 }
 
 const I = {
-  home:        'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z',
-  zap:         'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
-  brain:       'M12 2c-1.5 0-2.9.6-3.9 1.5A5 5 0 002 8.5C2 11 3.4 13 5.5 14c.3 2.4 2.3 4 4.5 4h4c2.2 0 4.2-1.6 4.5-4 2.1-1 3.5-3 3.5-5.5a5 5 0 00-6.1-5A4 4 0 0012 2z',
-  trending:    'M23 6l-9.5 9.5-5-5L1 18 M17 6h6v6',
-  pie:         'M21.21 15.89A10 10 0 118 2.83 M22 12A10 10 0 0012 2v10z',
-  users:       'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 11a4 4 0 100-8 4 4 0 000 8z M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75',
-  file:        'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
-  bell:        'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0',
-  plug:        'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
-  settings:    'M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
-  arrow:       'M5 12h14 M12 5l7 7-7 7',
-  arrowUp:     'M18 15l-6-6-6 6',
-  arrowDown:   'M6 9l6 6 6-6',
-  refresh:     'M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0114.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0020.49 15',
-  sparkle:     'M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z',
-  warning:     'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z M12 9v4 M12 17h.01',
-  check:       'M20 6L9 17l-5-5',
+  home: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z',
+  zap: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
+  brain: 'M12 2c-1.5 0-2.9.6-3.9 1.5A5 5 0 002 8.5C2 11 3.4 13 5.5 14c.3 2.4 2.3 4 4.5 4h4c2.2 0 4.2-1.6 4.5-4 2.1-1 3.5-3 3.5-5.5a5 5 0 00-6.1-5A4 4 0 0012 2z',
+  trending: 'M23 6l-9.5 9.5-5-5L1 18 M17 6h6v6',
+  pie: 'M21.21 15.89A10 10 0 118 2.83 M22 12A10 10 0 0012 2v10z',
+  users: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 11a4 4 0 100-8 4 4 0 000 8z M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75',
+  file: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
+  bell: 'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0',
+  plug: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  settings: 'M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
+  arrow: 'M5 12h14 M12 5l7 7-7 7',
+  arrowUp: 'M18 15l-6-6-6 6',
+  arrowDown: 'M6 9l6 6 6-6',
+  refresh: 'M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0114.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0020.49 15',
+  sparkle: 'M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z',
+  warning: 'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z M12 9v4 M12 17h.01',
+  check: 'M20 6L9 17l-5-5',
   competitors: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
 }
 
@@ -102,13 +112,13 @@ const I = {
 // Each item renders a real view (see renderView). `demo` items are honest
 // design concepts awaiting backend features; the separator sits before them.
 const NAV = [
-  { id: 'overview',      label: 'Overview',      icon: 'home' },
-  { id: 'reports',       label: 'Reports',       icon: 'file' },
-  { id: 'alerts',        label: 'Alerts',        icon: 'bell' },
-  { id: 'integrations',  label: 'Integrations',  icon: 'plug' },
-  { id: 'analyst',       label: 'AI Analyst',    icon: 'brain' },
+  { id: 'overview', label: 'Overview', icon: 'home' },
+  { id: 'reports', label: 'Reports', icon: 'file' },
+  { id: 'alerts', label: 'Alerts', icon: 'bell' },
+  { id: 'integrations', label: 'Integrations', icon: 'plug' },
+  { id: 'analyst', label: 'AI Analyst', icon: 'brain' },
   { id: 'opportunities', label: 'Opportunities', icon: 'zap', demo: true },
-  { id: 'settings',      label: 'Settings',      icon: 'settings' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
 ]
 
 // ─── App ──────────────────────────────────────────────────────────────────────
@@ -591,7 +601,7 @@ type WebContext = { note: string; source?: string }
 type Analysis = {
   headline?: string; chart?: AnalystChart; svg?: string | null;
   web_context?: WebContext[]; real_date?: string; seasonal?: string;
-  takeaway?: string; error?: string
+  takeaway?: string; error?: string; generated_at?: string
 }
 
 function CalloutChart({ chart }: { chart: AnalystChart }) {
@@ -700,6 +710,7 @@ function AnalystView() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [analystStep, setAnalystStep] = useState(0)
 
   // Load the list of available weeks from the archive (newest first).
   useEffect(() => {
@@ -715,15 +726,73 @@ function AnalystView() {
   }, [])
 
   const load = async (wk: string, refresh = false) => {
-    if (refresh) setGenerating(true); else setLoading(true)
-    try {
-      const resp = await fetch(`/api/analyst?week=${wk}${refresh ? '&refresh=1' : ''}`)
-      const payload = resp.ok ? await resp.json() : {}
-      setAnalysis(payload.analysis ?? null)
-    } catch {
-      setAnalysis(null)
+    if (!refresh) {
+      setLoading(true)
+      try {
+        const resp = await fetch(`/api/analyst?week=${wk}`)
+        const payload = resp.ok ? await resp.json() : {}
+        setAnalysis(payload.analysis ?? null)
+      } catch {
+        setAnalysis(null)
+      }
+      setLoading(false)
+      return
     }
-    setLoading(false)
+
+    // Fresh generation: stream progress, then fall back to polling the cache
+    // if the connection is cut but the work completed server-side.
+    setGenerating(true)
+    setAnalystStep(0)
+    const prevStamp = analysis?.generated_at
+    let got = false
+    try {
+      const resp = await fetch(`/api/analyst/stream?week=${wk}&refresh=1`)
+      if (resp.body) {
+        const reader = resp.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        const consume = (line: string) => {
+          const trimmed = line.trim()
+          if (!trimmed) return
+          try {
+            const data = JSON.parse(trimmed)
+            if (data.step !== undefined) setAnalystStep(Math.min(data.step, ANALYST_STEPS.length - 1))
+            if (data.result !== undefined) { setAnalysis(data.result.analysis ?? null); got = true }
+          } catch { /* partial line — will complete on the next read */ }
+        }
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          let nl: number
+          while ((nl = buffer.indexOf('\n')) >= 0) {
+            consume(buffer.slice(0, nl))
+            buffer = buffer.slice(nl + 1)
+          }
+        }
+        consume(buffer) // flush any trailing complete line
+      }
+    } catch {
+      /* stream failed — fall through to the poll below */
+    }
+
+    // If we never received a result (timeout / dropped connection), the
+    // generation may still have finished and cached server-side. Poll for it.
+    if (!got) {
+      for (let i = 0; i < 12 && !got; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        try {
+          const r = await fetch(`/api/analyst?week=${wk}`)
+          if (r.ok) {
+            const a = (await r.json()).analysis
+            if (a && !a.error && a.generated_at && a.generated_at !== prevStamp) {
+              setAnalysis(a); got = true
+            }
+          }
+        } catch { /* keep polling */ }
+      }
+      if (!got) setAnalysis({ error: 'That took too long — please try Analyze again.' })
+    }
     setGenerating(false)
   }
 
@@ -764,6 +833,50 @@ function AnalystView() {
 
       {loading && <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>Loading…</div>}
 
+      {/* ── Progress bar during generation ── */}
+      {generating && (
+        <div style={{ ...panelStyle, padding: '22px 24px' }}>
+          {/* Step label */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <span style={{ fontSize: 18 }}>{ANALYST_STEPS[analystStep].icon}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#C8D4EE', letterSpacing: '-0.01em' }}>
+                {ANALYST_STEPS[analystStep].label}…
+              </div>
+              <div style={{ fontSize: 11, color: '#3A4A6A', marginTop: 2 }}>
+                Step {analystStep + 1} of {ANALYST_STEPS.length} · This takes about 30 seconds
+              </div>
+            </div>
+          </div>
+          {/* Track */}
+          <div style={{ height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                borderRadius: 99,
+                background: 'linear-gradient(90deg, #5B8CFF, #7C5CFC)',
+                width: `${((analystStep + 1) / ANALYST_STEPS.length) * 100}%`,
+                transition: 'width 0.6s ease',
+              }}
+            />
+          </div>
+          {/* Step dots */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            {ANALYST_STEPS.map((step, i) => (
+              <div
+                key={i}
+                title={step.label}
+                style={{
+                  flex: 1, height: 3, borderRadius: 99,
+                  background: i <= analystStep ? '#5B8CFF' : 'rgba(255,255,255,0.07)',
+                  transition: 'background 0.4s ease',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {!loading && !analysis && (
         <div style={{ ...panelStyle, color: '#4A5A7A', fontSize: 13 }}>
           No analysis for {week} yet. Click “Analyze” to turn the report into a visual story.
@@ -777,7 +890,7 @@ function AnalystView() {
       )}
 
       {analysis && !analysis.error && (
-        <div className="animate-float-up" style={{ ...panelStyle, padding: '28px 30px' }}>
+        <div key={analysis.generated_at} className="animate-float-up" style={{ ...panelStyle, padding: '28px 30px' }}>
           {analysis.headline && (
             <h2 style={{ margin: '0 0 22px', fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', color: '#F0F4FF', lineHeight: 1.2 }}>
               {analysis.headline}
@@ -797,7 +910,7 @@ function AnalystView() {
               falls back to a structured renderer if the SVG is unusable. */}
           {analysis.svg ? (
             <div style={{ width: '100%', maxWidth: 640, margin: '4px auto' }}
-                 dangerouslySetInnerHTML={{ __html: analysis.svg }} />
+              dangerouslySetInnerHTML={{ __html: analysis.svg }} />
           ) : (
             <AnalystChartRender chart={analysis.chart} />
           )}
@@ -967,8 +1080,8 @@ function HeroCard() {
               boxShadow: '0 1px 2px rgba(0,0,0,0.3), 0 0 0 1px rgba(91,140,255,0.5)',
               transition: 'opacity 0.15s',
             }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.88'}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.88'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
             >
               Explore Opportunity
               <Icon d={I.arrow} size={13} />
@@ -980,16 +1093,16 @@ function HeroCard() {
               fontSize: 13, fontWeight: 400,
               transition: 'color 0.15s, border-color 0.15s',
             }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement
-              el.style.color = '#8B9CC8'
-              el.style.borderColor = 'rgba(255,255,255,0.14)'
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement
-              el.style.color = '#3A4A6A'
-              el.style.borderColor = 'rgba(255,255,255,0.08)'
-            }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.color = '#8B9CC8'
+                el.style.borderColor = 'rgba(255,255,255,0.14)'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.color = '#3A4A6A'
+                el.style.borderColor = 'rgba(255,255,255,0.08)'
+              }}
             >
               Save for later
             </button>
@@ -1111,10 +1224,10 @@ function MetricCard({ source, metric, value, positive, unavailable, neutral }: {
 // ─── Opportunity rows ─────────────────────────────────────────────────────────
 
 const OPPS = [
-  { id: 1, title: 'Healthcare AI Market Growth',      category: 'Market Expansion', value: '$250,000', confidence: 94, tag: 'Hot',    tagColor: '#5B8CFF' },
-  { id: 2, title: 'B2B SaaS Keyword Gap — EMEA',      category: 'SEO',              value: '$120,000', confidence: 81, tag: null,      tagColor: '' },
-  { id: 3, title: 'Retargeting Audience Expansion',   category: 'Paid Media',       value: '$78,000',  confidence: 76, tag: null,      tagColor: '' },
-  { id: 4, title: 'Email Re-engagement Sequence',     category: 'Lifecycle',        value: '$42,000',  confidence: 68, tag: 'Quick',  tagColor: '#22C55E' },
+  { id: 1, title: 'Healthcare AI Market Growth', category: 'Market Expansion', value: '$250,000', confidence: 94, tag: 'Hot', tagColor: '#5B8CFF' },
+  { id: 2, title: 'B2B SaaS Keyword Gap — EMEA', category: 'SEO', value: '$120,000', confidence: 81, tag: null, tagColor: '' },
+  { id: 3, title: 'Retargeting Audience Expansion', category: 'Paid Media', value: '$78,000', confidence: 76, tag: null, tagColor: '' },
+  { id: 4, title: 'Email Re-engagement Sequence', category: 'Lifecycle', value: '$42,000', confidence: 68, tag: 'Quick', tagColor: '#22C55E' },
 ]
 
 function OppRow({ opp, rank }: { opp: typeof OPPS[0]; rank: number }) {

@@ -14,11 +14,12 @@ daily generation cap.
 import json
 import os
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 
 from app.report import weekly_report
 from app.snapshots import (
@@ -164,6 +165,7 @@ def generate_analysis(report: dict, week_id: str) -> dict:
     # sanitize the bespoke SVG; drop it (keep the structured fallback) if unsafe
     analysis["svg"] = sanitize_svg(analysis.get("svg"))
     analysis["real_date"] = when_iso
+    analysis["generated_at"] = datetime.now(timezone.utc).isoformat()
     return analysis
 
 
@@ -198,3 +200,101 @@ def analyst(week: str | None = None, refresh: bool = False):
             analysis["locked"] = True
         save_analysis(analysis, wk)
     return {"analysis": analysis, "cached": False, "week": wk}
+
+
+@router.get("/analyst/stream")
+def analyst_stream(week: str | None = None, refresh: bool = False):
+    """Streaming version of the AI Analyst. Yields ndjson lines with real-time steps."""
+    wk = week or current_week_id()
+
+    def generate():
+        cached = get_saved_analysis(wk)
+        if cached and (not refresh or cached.get("locked")):
+            yield (json.dumps({"step": 4, "label": "Loading cached analysis..."}) + "\n").encode("utf-8")
+            yield (json.dumps({"result": {"analysis": cached, "cached": True, "week": wk}}) + "\n").encode("utf-8")
+            return
+            
+        if not check_and_bump_gen_budget():
+            if cached:
+                yield (json.dumps({"result": {"analysis": cached, "cached": True, "week": wk, "note": "daily limit"}}) + "\n").encode("utf-8")
+            else:
+                yield (json.dumps({"result": {"analysis": None, "week": wk, "note": "Daily limit reached."}}) + "\n").encode("utf-8")
+            return
+
+        yield (json.dumps({"step": 0, "label": "Checking report data..."}) + "\n").encode("utf-8")
+        report = get_saved_report(wk)
+        if not report and wk == current_week_id():
+            report = (weekly_report(refresh=True) or {}).get("report")
+        if not report:
+            yield (json.dumps({"result": {"analysis": None, "note": f"No report available for {wk}.", "week": wk}}) + "\n").encode("utf-8")
+            return
+            
+        api_key = os.getenv("ANALYST_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            yield (json.dumps({"result": {"error": "no API key set"}}) + "\n").encode("utf-8")
+            return
+
+        dt = real_date(wk)
+        when = dt.strftime("%B %Y") if dt else "recently"
+        when_iso = dt.isoformat() if dt else "an unknown date"
+        client = Anthropic(api_key=api_key)
+        # One search + low effort keep generation inside Vercel's 60s budget.
+        # (Sonnet 5's adaptive thinking runs 100s+ at default effort with search.)
+        tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 1}]
+
+        messages = [{
+            "role": "user",
+            "content": (
+                f"This report's week maps to the real-world week of {when_iso} ({when}). "
+                f"Search for real marketing/ad-industry context from around then.\n\n"
+                f"Report JSON:\n{json.dumps(report, indent=2)}"
+            ),
+        }]
+
+        # Single attempt on the streaming path: a retry after a ~40s first
+        # attempt would exceed the serverless timeout and get killed. If it
+        # fails, the frontend surfaces the error and the user can re-run.
+        analysis = None
+        try:
+            yield (json.dumps({"step": 1, "label": "Searching the web for context..."}) + "\n").encode("utf-8")
+            message = None
+            for _ in range(4):
+                message = client.messages.create(
+                    model="claude-sonnet-5",
+                    max_tokens=16000,
+                    output_config={"effort": "low"},
+                    system=SYSTEM_PROMPT,
+                    tools=tools,
+                    messages=messages,
+                )
+                if message.stop_reason == "pause_turn":
+                    yield (json.dumps({"step": 2, "label": "Reading industry signals..."}) + "\n").encode("utf-8")
+                    messages.append({"role": "assistant", "content": message.content})
+                    continue
+                break
+
+            yield (json.dumps({"step": 3, "label": "Drawing your chart & writing analysis..."}) + "\n").encode("utf-8")
+            text = "".join(b.text for b in (message.content if message else []) if b.type == "text").strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                text = text[4:] if text.startswith("json") else text
+            analysis = json.loads(text)
+        except Exception:
+            analysis = None
+
+        if analysis is None:
+            yield (json.dumps({"result": {"error": "Generation failed this time — please try again."}}) + "\n").encode("utf-8")
+            return
+
+        yield (json.dumps({"step": 4, "label": "Wrapping up..."}) + "\n").encode("utf-8")
+        analysis["svg"] = sanitize_svg(analysis.get("svg"))
+        analysis["real_date"] = when_iso
+        analysis["generated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        if cached and cached.get("locked"):
+            analysis["locked"] = True
+        save_analysis(analysis, wk)
+        
+        yield (json.dumps({"result": {"analysis": analysis, "cached": False, "week": wk}}) + "\n").encode("utf-8")
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
